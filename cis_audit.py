@@ -25,7 +25,7 @@ from pwd import getpwuid  # https://docs.python.org/3/library/pwd.html#pwd.getpw
 from types import SimpleNamespace  # https://docs.python.org/3/library/types.html#types.SimpleNamespace
 from typing import Optional
 
-__version__ = '0.20.0'
+__version__ = '0.20.0a4'
 
 
 def _parse_arguments(argv=sys.argv):

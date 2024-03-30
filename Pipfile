@@ -7,7 +7,7 @@ name = "pypi"
 
 [dev-packages]
 cis-benchmarks-audit = {editable = true, path = "."}
-black = "*"
+black = ">=24.3.0"
 flake8 = "*"
 isort = "*"
 mock = "*"

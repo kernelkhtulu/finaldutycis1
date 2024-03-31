@@ -5,10 +5,10 @@ from unittest.mock import patch
 
 import pytest
 
-from cis_audit import CISAudit
+from cis_audit import audit_gpgcheck_is_activated
 
 
-def mock_gpgcheck_activated_pass(self, cmd):
+def mock_gpgcheck_activated_pass(cmd):
     if 'yum.conf' in cmd:
         output = ['gpgcheck=1']
         error = ['']
@@ -22,7 +22,7 @@ def mock_gpgcheck_activated_pass(self, cmd):
     return SimpleNamespace(stdout=output, stderr=error, returncode=returncode)
 
 
-def mock_gpgcheck_activated_fail_state_1(self, cmd):
+def mock_gpgcheck_activated_fail_state_1(cmd):
     if 'yum.conf' in cmd:
         output = ['gpgcheck=0']
         error = ['']
@@ -36,7 +36,7 @@ def mock_gpgcheck_activated_fail_state_1(self, cmd):
     return SimpleNamespace(stdout=output, stderr=error, returncode=returncode)
 
 
-def mock_gpgcheck_activated_fail_state_2(self, cmd):
+def mock_gpgcheck_activated_fail_state_2(cmd):
     if 'yum.conf' in cmd:
         output = ['gpgcheck=1']
         error = ['']
@@ -50,7 +50,7 @@ def mock_gpgcheck_activated_fail_state_2(self, cmd):
     return SimpleNamespace(stdout=output, stderr=error, returncode=returncode)
 
 
-def mock_gpgcheck_activated_fail_state_3(self, cmd):
+def mock_gpgcheck_activated_fail_state_3(cmd):
     if 'yum.conf' in cmd:
         output = ['gpgcheck=0']
         error = ['']
@@ -64,29 +64,28 @@ def mock_gpgcheck_activated_fail_state_3(self, cmd):
     return SimpleNamespace(stdout=output, stderr=error, returncode=returncode)
 
 
-class TestGPGCheckActivated:
-    test = CISAudit()
-    test_id = '1.1'
+@patch("cis_audit._shellexec", mock_gpgcheck_activated_pass)
+def test_check_gpgcheck_is_activated_pass():
+    state = audit_gpgcheck_is_activated()
+    assert state == 0
 
-    @patch.object(CISAudit, "_shellexec", mock_gpgcheck_activated_pass)
-    def test_check_gpgcheck_is_activated_pass(self):
-        state = self.test.audit_gpgcheck_is_activated()
-        assert state == 0
 
-    @patch.object(CISAudit, "_shellexec", mock_gpgcheck_activated_fail_state_1)
-    def test_check_gpgcheck_is_activated_fail_state_1(self):
-        state = self.test.audit_gpgcheck_is_activated()
-        assert state == 1
+@patch("cis_audit._shellexec", mock_gpgcheck_activated_fail_state_1)
+def test_check_gpgcheck_is_activated_fail_state_1():
+    state = audit_gpgcheck_is_activated()
+    assert state == 1
 
-    @patch.object(CISAudit, "_shellexec", mock_gpgcheck_activated_fail_state_2)
-    def test_check_gpgcheck_is_activated_fail_state_2(self):
-        state = self.test.audit_gpgcheck_is_activated()
-        assert state == 2
 
-    @patch.object(CISAudit, "_shellexec", mock_gpgcheck_activated_fail_state_3)
-    def test_check_gpgcheck_is_activated_fail_state_3(self):
-        state = self.test.audit_gpgcheck_is_activated()
-        assert state == 3
+@patch("cis_audit._shellexec", mock_gpgcheck_activated_fail_state_2)
+def test_check_gpgcheck_is_activated_fail_state_2():
+    state = audit_gpgcheck_is_activated()
+    assert state == 2
+
+
+@patch("cis_audit._shellexec", mock_gpgcheck_activated_fail_state_3)
+def test_check_gpgcheck_is_activated_fail_state_3():
+    state = audit_gpgcheck_is_activated()
+    assert state == 3
 
 
 if __name__ == '__main__':

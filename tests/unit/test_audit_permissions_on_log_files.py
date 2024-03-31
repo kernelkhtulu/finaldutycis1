@@ -5,12 +5,10 @@ from unittest.mock import patch
 
 import pytest
 
-from cis_audit import CISAudit
-
-test = CISAudit()
+from cis_audit import audit_permissions_on_log_files
 
 
-def mock_audit_permissions_on_log_files_are_configured_pass(self, cmd):
+def mock_audit_permissions_on_log_files_are_configured_pass(cmd):
     stdout = ['']
     stderr = ['']
     returncode = 0
@@ -18,7 +16,7 @@ def mock_audit_permissions_on_log_files_are_configured_pass(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-def mock_audit_permissions_on_log_files_are_configured_fail(self, cmd):
+def mock_audit_permissions_on_log_files_are_configured_fail(cmd):
     stdout = [
         '-rw-r--r--. 1 root root 0 Jan 1 0:00 /var/log/pytest',
         '',
@@ -29,15 +27,15 @@ def mock_audit_permissions_on_log_files_are_configured_fail(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-@patch.object(CISAudit, "_shellexec", mock_audit_permissions_on_log_files_are_configured_pass)
+@patch("cis_audit._shellexec", mock_audit_permissions_on_log_files_are_configured_pass)
 def test_audit_permissions_on_log_files_are_configured_pass():
-    state = test.audit_permissions_on_log_files()
+    state = audit_permissions_on_log_files()
     assert state == 0
 
 
-@patch.object(CISAudit, "_shellexec", mock_audit_permissions_on_log_files_are_configured_fail)
+@patch("cis_audit._shellexec", mock_audit_permissions_on_log_files_are_configured_fail)
 def test_audit_permissions_on_log_files_are_configured_fail():
-    state = test.audit_permissions_on_log_files()
+    state = audit_permissions_on_log_files()
     assert state == 1
 
 

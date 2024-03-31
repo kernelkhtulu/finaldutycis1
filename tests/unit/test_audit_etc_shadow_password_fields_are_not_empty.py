@@ -5,12 +5,10 @@ from unittest.mock import patch
 
 import pytest
 
-from cis_audit import CISAudit
-
-test = CISAudit()
+from cis_audit import audit_etc_shadow_password_fields_are_not_empty
 
 
-def mock_etc_shadow_password_fields_are_not_empty_pass(self, cmd):
+def mock_etc_shadow_password_fields_are_not_empty_pass(cmd):
     returncode = 1
     stderr = ['']
     stdout = ['']
@@ -18,7 +16,7 @@ def mock_etc_shadow_password_fields_are_not_empty_pass(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-def mock_etc_shadow_password_fields_are_not_empty_fail(self, cmd):
+def mock_etc_shadow_password_fields_are_not_empty_fail(cmd):
     returncode = 0
     stderr = ['']
     stdout = ['pytest::18925::::::']
@@ -26,15 +24,15 @@ def mock_etc_shadow_password_fields_are_not_empty_fail(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-@patch.object(CISAudit, "_shellexec", mock_etc_shadow_password_fields_are_not_empty_pass)
+@patch("cis_audit._shellexec", mock_etc_shadow_password_fields_are_not_empty_pass)
 def test_audit_etc_shadow_password_fields_are_not_empty_pass():
-    state = test.audit_etc_shadow_password_fields_are_not_empty()
+    state = audit_etc_shadow_password_fields_are_not_empty()
     assert state == 0
 
 
-@patch.object(CISAudit, "_shellexec", mock_etc_shadow_password_fields_are_not_empty_fail)
+@patch("cis_audit._shellexec", mock_etc_shadow_password_fields_are_not_empty_fail)
 def test_audit_etc_shadow_password_fields_are_not_empty_fail():
-    state = test.audit_etc_shadow_password_fields_are_not_empty()
+    state = audit_etc_shadow_password_fields_are_not_empty()
     assert state == 1
 
 

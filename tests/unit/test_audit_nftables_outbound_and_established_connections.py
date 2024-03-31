@@ -5,10 +5,10 @@ from unittest.mock import patch
 
 import pytest
 
-from cis_audit import CISAudit
+from cis_audit import audit_nftables_outbound_and_established_connections
 
 
-def mock_nftables_connections_are_configured_pass(self, cmd):
+def mock_nftables_connections_are_configured_pass(cmd):
     returncode = 0
     stderr = ['']
 
@@ -31,7 +31,7 @@ def mock_nftables_connections_are_configured_pass(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-def mock_nftables_connections_are_configured_fail(self, cmd):
+def mock_nftables_connections_are_configured_fail(cmd):
     stdout = ['']
     stderr = ['']
     returncode = 1
@@ -39,18 +39,15 @@ def mock_nftables_connections_are_configured_fail(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-test = CISAudit()
-
-
-@patch.object(CISAudit, "_shellexec", mock_nftables_connections_are_configured_pass)
+@patch("cis_audit._shellexec", mock_nftables_connections_are_configured_pass)
 def test_audit_nftables_connections_are_configured_pass():
-    state = test.audit_nftables_outbound_and_established_connections()
+    state = audit_nftables_outbound_and_established_connections()
     assert state == 0
 
 
-@patch.object(CISAudit, "_shellexec", mock_nftables_connections_are_configured_fail)
+@patch("cis_audit._shellexec", mock_nftables_connections_are_configured_fail)
 def test_audit_nftables_connections_are_configured_fail_all():
-    state = test.audit_nftables_outbound_and_established_connections()
+    state = audit_nftables_outbound_and_established_connections()
     assert state == 3
 
 

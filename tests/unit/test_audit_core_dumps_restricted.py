@@ -5,10 +5,10 @@ from unittest.mock import patch
 
 import pytest
 
-from cis_audit import CISAudit
+from cis_audit import audit_core_dumps_restricted
 
 
-def mock_core_dumps_pass(self, cmd):
+def mock_core_dumps_pass(cmd):
     if 'limits.conf' in cmd:
         stdout = ['* hard core 0']
         stderr = ['']
@@ -21,7 +21,7 @@ def mock_core_dumps_pass(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-def mock_core_dumps_fail(self, cmd):
+def mock_core_dumps_fail(cmd):
     stdout = ['']
     stderr = ['']
     returncode = 1
@@ -29,18 +29,16 @@ def mock_core_dumps_fail(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-class TestCoreDumpsRestricted:
-    test = CISAudit()
+@patch("cis_audit._shellexec", mock_core_dumps_pass)
+def test_mock_core_dumps_pass():
+    state = audit_core_dumps_restricted()
+    assert state == 0
 
-    @patch.object(CISAudit, "_shellexec", mock_core_dumps_pass)
-    def test_mock_core_dumps_pass(self):
-        state = self.test.audit_core_dumps_restricted()
-        assert state == 0
 
-    @patch.object(CISAudit, "_shellexec", mock_core_dumps_fail)
-    def test_mock_core_dumps_fail(self):
-        state = self.test.audit_core_dumps_restricted()
-        assert state == 7
+@patch("cis_audit._shellexec", mock_core_dumps_fail)
+def test_mock_core_dumps_fail():
+    state = audit_core_dumps_restricted()
+    assert state == 7
 
 
 if __name__ == '__main__':

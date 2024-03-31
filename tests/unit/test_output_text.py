@@ -2,7 +2,7 @@
 
 import pytest
 
-from cis_audit import CISAudit
+from cis_audit import output_text
 
 results = [
     {'_id': '1', 'description': 'section header'},
@@ -27,7 +27,7 @@ stats = {
 
 
 def test_output_text(capsys):
-    CISAudit().output_text(results=results, host_os=host_os, benchmark_version=benchmark_version, stats=stats)
+    output_text(results=results, host_os=host_os, benchmark_version=benchmark_version, stats=stats)
 
     output, error = capsys.readouterr()
     print(output)

@@ -5,12 +5,10 @@ from unittest.mock import patch
 
 import pytest
 
-from cis_audit import CISAudit
-
-test = CISAudit()
+from cis_audit import audit_journald_configured_to_write_logfiles_to_disk
 
 
-def mock_audit_journald_configured_to_write_logfiles_to_disk_pass(self, cmd):
+def mock_audit_journald_configured_to_write_logfiles_to_disk_pass(cmd):
     stdout = [
         'Storage=persistent',
         '',
@@ -21,7 +19,7 @@ def mock_audit_journald_configured_to_write_logfiles_to_disk_pass(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-def mock_audit_journald_configured_to_write_logfiles_to_disk_fail(self, cmd):
+def mock_audit_journald_configured_to_write_logfiles_to_disk_fail(cmd):
     stdout = ['']
     stderr = ['']
     returncode = 1
@@ -29,15 +27,15 @@ def mock_audit_journald_configured_to_write_logfiles_to_disk_fail(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-@patch.object(CISAudit, "_shellexec", mock_audit_journald_configured_to_write_logfiles_to_disk_pass)
+@patch("cis_audit._shellexec", mock_audit_journald_configured_to_write_logfiles_to_disk_pass)
 def test_audit_journald_configured_to_write_logfiles_to_disk_pass():
-    state = test.audit_journald_configured_to_write_logfiles_to_disk()
+    state = audit_journald_configured_to_write_logfiles_to_disk()
     assert state == 0
 
 
-@patch.object(CISAudit, "_shellexec", mock_audit_journald_configured_to_write_logfiles_to_disk_fail)
+@patch("cis_audit._shellexec", mock_audit_journald_configured_to_write_logfiles_to_disk_fail)
 def test_audit_journald_configured_to_write_logfiles_to_disk_fail():
-    state = test.audit_journald_configured_to_write_logfiles_to_disk()
+    state = audit_journald_configured_to_write_logfiles_to_disk()
     assert state == 1
 
 

@@ -6,9 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from cis_audit import CISAudit
-
-test = CISAudit()
+from cis_audit import audit_xdmcp_not_enabled
 
 
 def mock_xdmcp_not_enabled_pass(*args, **kwargs):
@@ -31,16 +29,16 @@ def mock_os_path_exists_pass(file):
     return True
 
 
-@patch.object(CISAudit, "_shellexec", mock_xdmcp_not_enabled_pass)
+@patch("cis_audit._shellexec", mock_xdmcp_not_enabled_pass)
 def test_audit_xdmcp_not_enabled_pass():
-    state = test.audit_xdmcp_not_enabled()
+    state = audit_xdmcp_not_enabled()
     assert state == 0
 
 
 @patch.object(os.path, "exists", mock_os_path_exists_pass)
-@patch.object(CISAudit, "_shellexec", mock_xdmcp_not_enabled_fail)
+@patch("cis_audit._shellexec", mock_xdmcp_not_enabled_fail)
 def test_audit_xdmcp_not_enabled_fail():
-    state = test.audit_xdmcp_not_enabled()
+    state = audit_xdmcp_not_enabled()
     assert state == 1
 
 

@@ -1,21 +1,23 @@
 #!/usr/bin/env python3
-## andy.dustin@gmail.com [rev: 83422a0e]
 
+import argparse
+import logging
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 
-from cis_audit import CISAudit
+from cis_audit import _is_test_included
 
 
+@patch("cis_audit.CONFIG", argparse.Namespace(includes=["1.1"], excludes=None, level=0, log_level="DEBUG"))
 def test_id_included(caplog):
     """Test that an ID which has been included returns True"""
     test_id = '1.1'
     test_level = 1
-    custom_config = SimpleNamespace(includes=['1.1'], excludes=None, level=0, log_level='DEBUG')
-    test = CISAudit(config=custom_config)
 
-    result = test._is_test_included(test_id, test_level)
+    caplog.set_level(logging.DEBUG)
+    result = _is_test_included(test_id, test_level)
 
     assert caplog.records[0].msg == f'Checking whether to run test {test_id}'
     assert caplog.records[1].msg == f'Test {test_id} was explicitly included'
@@ -24,14 +26,14 @@ def test_id_included(caplog):
     assert result is True
 
 
+@patch("cis_audit.CONFIG", argparse.Namespace(includes=["1.1"], excludes=None, level=0, log_level="DEBUG"))
 def test_id_not_included(caplog):
     """Test that an ID which isn't explicitly included returns False"""
     test_id = '1.2'
     test_level = 1
-    custom_config = SimpleNamespace(includes=['1.1'], excludes=None, level=0, log_level='DEBUG')
-    test = CISAudit(config=custom_config)
 
-    result = test._is_test_included(test_id, test_level)
+    caplog.set_level(logging.DEBUG)
+    result = _is_test_included(test_id, test_level)
 
     assert caplog.records[0].msg == f'Checking whether to run test {test_id}'
     assert caplog.records[1].msg == f'Excluding test {test_id} (Not found in the include list)'
@@ -40,14 +42,14 @@ def test_id_not_included(caplog):
     assert result is False
 
 
+@patch("cis_audit.CONFIG", argparse.Namespace(includes=None, excludes=["1.1"], level=0, log_level="DEBUG"))
 def test_id_excluded(caplog):
     """Test that an ID which is explicitly excluded returns False"""
     test_id = '1.1'
     test_level = 1
-    custom_config = SimpleNamespace(includes=None, excludes=['1.1'], level=0, log_level='DEBUG')
-    test = CISAudit(config=custom_config)
 
-    result = test._is_test_included(test_id, test_level)
+    caplog.set_level(logging.DEBUG)
+    result = _is_test_included(test_id, test_level)
 
     assert caplog.records[0].msg == f'Checking whether to run test {test_id}'
     assert caplog.records[1].msg == f'Test {test_id} was explicitly excluded'
@@ -56,28 +58,28 @@ def test_id_excluded(caplog):
     assert result is False
 
 
+@patch("cis_audit.CONFIG", argparse.Namespace(includes=None, excludes=["1.1"], level=0, log_level="DEBUG"))
 def test_id_not_excluded(caplog):
     """Test that an ID which is not excluded returns True"""
     test_id = '1.2'
     test_level = 1
-    custom_config = SimpleNamespace(includes=None, excludes=['1.1'], level=0, log_level='DEBUG')
-    test = CISAudit(config=custom_config)
 
-    result = test._is_test_included(test_id=test_id, test_level=test_level)
+    caplog.set_level(logging.DEBUG)
+    result = _is_test_included(test_id=test_id, test_level=test_level)
 
     assert caplog.records[0].msg == f'Checking whether to run test {test_id}'
     assert caplog.records[1].msg == f'Including test {test_id}'
     assert result is True
 
 
+@patch("cis_audit.CONFIG", argparse.Namespace(includes=["1.1"], excludes=None, level=0, log_level="DEBUG"))
 def test_parent_id_included(caplog):
     """Test that an ID whose parent has been included returns True"""
     test_id = '1.1.1'
     test_level = 1
-    custom_config = SimpleNamespace(includes=['1.1'], excludes=None, level=0, log_level='DEBUG')
-    test = CISAudit(config=custom_config)
 
-    result = test._is_test_included(test_id=test_id, test_level=test_level)
+    caplog.set_level(logging.DEBUG)
+    result = _is_test_included(test_id=test_id, test_level=test_level)
 
     assert caplog.records[0].msg == f'Checking whether to run test {test_id}'
     assert caplog.records[1].msg == f'Test {test_id} is the child of an included test'
@@ -86,14 +88,14 @@ def test_parent_id_included(caplog):
     assert result is True
 
 
+@patch("cis_audit.CONFIG", argparse.Namespace(includes=["1.1.1"], excludes=None, level=0, log_level="DEBUG"))
 def test_child_id_included(caplog):
     """Test that an ID whose child has been included returns True"""
     test_id = '1.1'
     test_level = 1
-    custom_config = SimpleNamespace(includes=['1.1.1'], excludes=None, level=0, log_level='DEBUG')
-    test = CISAudit(config=custom_config)
 
-    result = test._is_test_included(test_id=test_id, test_level=test_level)
+    caplog.set_level(logging.DEBUG)
+    result = _is_test_included(test_id=test_id, test_level=test_level)
 
     assert caplog.records[0].msg == f'Checking whether to run test {test_id}'
     assert caplog.records[1].msg == f'Test {test_id} is the parent of an included test'
@@ -102,14 +104,14 @@ def test_child_id_included(caplog):
     assert result is True
 
 
+@patch("cis_audit.CONFIG", argparse.Namespace(includes=None, excludes=["1.1"], level=0, log_level="DEBUG"))
 def test_parent_id_excluded(caplog):
     """Test that an ID whose parent has been excluded returns False"""
     test_id = '1.1.1'
     test_level = 1
-    custom_config = SimpleNamespace(includes=None, excludes=['1.1'], level=0, log_level='DEBUG')
-    test = CISAudit(config=custom_config)
 
-    result = test._is_test_included(test_id=test_id, test_level=test_level)
+    caplog.set_level(logging.DEBUG)
+    result = _is_test_included(test_id=test_id, test_level=test_level)
 
     assert caplog.records[0].msg == f'Checking whether to run test {test_id}'
     assert caplog.records[1].msg == f'Test {test_id} is the child of an excluded test'
@@ -118,14 +120,14 @@ def test_parent_id_excluded(caplog):
     assert result is False
 
 
+@patch("cis_audit.CONFIG", argparse.Namespace(includes=None, excludes=None, level=0, log_level="DEBUG"))
 def test_level_matches_testing_level(caplog):
     """Test that a test's level which matches the testing level returns True"""
     test_id = '1.1'
     test_level = 1
-    custom_config = SimpleNamespace(includes=None, excludes=None, level=1, log_level='DEBUG')
-    test = CISAudit(config=custom_config)
 
-    result = test._is_test_included(test_id=test_id, test_level=test_level)
+    caplog.set_level(logging.DEBUG)
+    result = _is_test_included(test_id=test_id, test_level=test_level)
 
     assert caplog.records[0].msg == f'Checking whether to run test {test_id}'
     assert caplog.records[1].msg == f'Including test {test_id}'
@@ -133,14 +135,14 @@ def test_level_matches_testing_level(caplog):
     assert result is True
 
 
+@patch("cis_audit.CONFIG", argparse.Namespace(includes=None, excludes=None, level=1, log_level="DEBUG"))
 def test_level_not_matches_testing_level(caplog):
     """Test that a test's level which doesn't match the testing level returns False"""
     test_id = '1.1'
     test_level = 2
-    custom_config = SimpleNamespace(includes=None, excludes=None, level=1, log_level='DEBUG')
-    test = CISAudit(config=custom_config)
 
-    result = test._is_test_included(test_id=test_id, test_level=test_level)
+    caplog.set_level(logging.DEBUG)
+    result = _is_test_included(test_id=test_id, test_level=test_level)
 
     assert caplog.records[0].msg == f'Checking whether to run test {test_id}'
     assert caplog.records[1].msg == f'Excluding level {test_level} test {test_id}'

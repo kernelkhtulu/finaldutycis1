@@ -5,18 +5,18 @@ from unittest.mock import patch
 
 import pytest
 
-from cis_audit import CISAudit
+from cis_audit import audit_service_is_disabled
 
 
-def mock_masked(*args, **kwargs):
-    output = ['masked']
+def mock_disabled(*args, **kwargs):
+    output = ['disabled']
     error = ['']
     returncode = 0
 
     return SimpleNamespace(stdout=output, stderr=error, returncode=returncode)
 
 
-def mock_unmasked(*args, **kwargs):
+def mock_enabled(*args, **kwargs):
     output = ['enabled']
     error = ['']
     returncode = 0
@@ -32,20 +32,16 @@ def mock_error(*args, **kwargs):
     return SimpleNamespace(stdout=output, stderr=error, returncode=returncode)
 
 
-class TestServiceMasked:
-    test = CISAudit()
-    test_id = '1.1'
-    test_service = 'pytest'
+@patch("cis_audit._shellexec", mock_disabled)
+def test_service_disabled_pass():
+    state = audit_service_is_disabled("pytest")
+    assert state == 0
 
-    @patch.object(CISAudit, "_shellexec", mock_masked)
-    def test_service_masked_pass(self):
-        state = self.test.audit_service_is_masked(service=self.test_service)
-        assert state == 0
 
-    @patch.object(CISAudit, "_shellexec", mock_unmasked)
-    def test_service_masked_fail(self):
-        state = self.test.audit_service_is_masked(service=self.test_service)
-        assert state == 1
+@patch("cis_audit._shellexec", mock_enabled)
+def test_service_disabled_fail():
+    state = audit_service_is_disabled("pytest")
+    assert state == 1
 
 
 if __name__ == '__main__':

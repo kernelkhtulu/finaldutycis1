@@ -1,17 +1,14 @@
 #!/usr/bin/env python3
 
-import os
 from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
 
-import cis_audit
-
-test = cis_audit.CISAudit()
+from cis_audit import audit_selinux_not_disabled_in_bootloader
 
 
-def mock_shellexec_pass(self, cmd):
+def mock_shellexec_pass(cmd):
     returncode = 1
     stderr = ['']
     stdout = ['']
@@ -19,7 +16,7 @@ def mock_shellexec_pass(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-def mock_shellexec_fail(self, cmd):
+def mock_shellexec_fail(cmd):
     returncode = 0
     stderr = ['']
     stdout = [
@@ -71,24 +68,24 @@ def mock_os_walk_no_match(top, topdown=True, onerror=None, followlinks=False):
             yield row
 
 
-@patch.object(os, "walk", mock_os_walk)
-@patch.object(cis_audit.CISAudit, "_shellexec", mock_shellexec_pass)
+@patch("os.walk", mock_os_walk)
+@patch("cis_audit._shellexec", mock_shellexec_pass)
 def test_audit_selinux_not_disabled_in_bootloader_pass():
-    state = test.audit_selinux_not_disabled_in_bootloader()
+    state = audit_selinux_not_disabled_in_bootloader()
     assert state == 0
 
 
-@patch.object(os, "walk", mock_os_walk)
-@patch.object(cis_audit.CISAudit, "_shellexec", mock_shellexec_fail)
+@patch("os.walk", mock_os_walk)
+@patch("cis_audit._shellexec", mock_shellexec_fail)
 def test_audit_selinux_not_disabled_in_bootloader_fail():
-    state = test.audit_selinux_not_disabled_in_bootloader()
+    state = audit_selinux_not_disabled_in_bootloader()
     assert state == 2
 
 
-@patch.object(os, "walk", mock_os_walk_no_match)
-@patch.object(cis_audit.CISAudit, "_shellexec", mock_shellexec_fail)
+@patch("os.walk", mock_os_walk_no_match)
+@patch("cis_audit._shellexec", mock_shellexec_fail)
 def test_audit_selinux_not_disabled_in_bootloader_fail_no_match():
-    state = test.audit_selinux_not_disabled_in_bootloader()
+    state = audit_selinux_not_disabled_in_bootloader()
     assert state == -1
 
 

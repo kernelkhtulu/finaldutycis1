@@ -6,9 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from cis_audit import CISAudit
-
-test = CISAudit()
+from cis_audit import audit_sshd_config_option
 
 
 def mock_audit_sshd_x11forwarding_pass(*args):
@@ -43,51 +41,51 @@ def mock_audit_sshd_maxauthtries_fail(*args):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-@patch.object(CISAudit, "_shellexec", mock_audit_sshd_x11forwarding_pass)
+@patch("cis_audit._shellexec", mock_audit_sshd_x11forwarding_pass)
 def test_audit_sshd_parameter_x11forwarding_pass():
-    state = test.audit_sshd_config_option(parameter='x11forwarding', expected_value='no')
+    state = audit_sshd_config_option(parameter='x11forwarding', expected_value='no')
     assert state == 0
 
 
-@patch.object(CISAudit, "_shellexec", mock_audit_sshd_x11forwarding_fail)
+@patch("cis_audit._shellexec", mock_audit_sshd_x11forwarding_fail)
 def test_audit_sshd_parameter_x11forwarding_fail():
-    state = test.audit_sshd_config_option(parameter='x11forwarding', expected_value='no')
+    state = audit_sshd_config_option(parameter='x11forwarding', expected_value='no')
     assert state == 3
 
 
-@patch.object(CISAudit, "_shellexec", mock_audit_sshd_maxauthtries_pass)
+@patch("cis_audit._shellexec", mock_audit_sshd_maxauthtries_pass)
 def test_audit_sshd_parameter_le_pass():
-    state = test.audit_sshd_config_option(parameter="maxauthtries", expected_value="4", comparison="le")
+    state = audit_sshd_config_option(parameter="maxauthtries", expected_value="4", comparison="le")
     assert state == 0
 
 
-@patch.object(CISAudit, "_shellexec", mock_audit_sshd_maxauthtries_fail)
+@patch("cis_audit._shellexec", mock_audit_sshd_maxauthtries_fail)
 def test_audit_sshd_parameter_le_fail():
-    state = test.audit_sshd_config_option(parameter="maxauthtries", expected_value="4", comparison="le")
+    state = audit_sshd_config_option(parameter="maxauthtries", expected_value="4", comparison="le")
     assert state == 3
 
 
-@patch.object(CISAudit, "_shellexec", mock_audit_sshd_maxauthtries_fail)
+@patch("cis_audit._shellexec", mock_audit_sshd_maxauthtries_fail)
 def test_audit_sshd_parameter_lt_fail():
-    state = test.audit_sshd_config_option(parameter="maxauthtries", expected_value="4", comparison="lt")
+    state = audit_sshd_config_option(parameter="maxauthtries", expected_value="4", comparison="lt")
     assert state == 3
 
 
-@patch.object(CISAudit, "_shellexec", mock_audit_sshd_maxauthtries_fail)
+@patch("cis_audit._shellexec", mock_audit_sshd_maxauthtries_fail)
 def test_audit_sshd_parameter_ge_fail():
-    state = test.audit_sshd_config_option(parameter="maxauthtries", expected_value="6", comparison="ge")
+    state = audit_sshd_config_option(parameter="maxauthtries", expected_value="6", comparison="ge")
     assert state == 3
 
 
-@patch.object(CISAudit, "_shellexec", mock_audit_sshd_maxauthtries_fail)
+@patch("cis_audit._shellexec", mock_audit_sshd_maxauthtries_fail)
 def test_audit_sshd_parameter_te_fail():
-    state = test.audit_sshd_config_option(parameter="maxauthtries", expected_value="6", comparison="gt")
+    state = audit_sshd_config_option(parameter="maxauthtries", expected_value="6", comparison="gt")
     assert state == 3
 
 
-@patch.object(CISAudit, "_shellexec", mock_audit_sshd_maxauthtries_fail)
+@patch("cis_audit._shellexec", mock_audit_sshd_maxauthtries_fail)
 def test_audit_sshd_parameter_ne_fail():
-    state = test.audit_sshd_config_option(parameter="maxauthtries", expected_value="5", comparison="ne")
+    state = audit_sshd_config_option(parameter="maxauthtries", expected_value="5", comparison="ne")
     assert state == 3
 
 

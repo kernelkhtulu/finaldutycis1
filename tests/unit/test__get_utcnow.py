@@ -4,13 +4,11 @@ from datetime import datetime
 
 import pytest
 
-from cis_audit import CISAudit
-
-test = CISAudit()
+from cis_audit import _get_utcnow
 
 
 def test_get_utcnow():
-    testtime = test._get_utcnow()
+    testtime = _get_utcnow()
     realtime = datetime.utcnow()
     timediff = realtime - testtime
 

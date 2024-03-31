@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from cis_audit import CISAudit
+from cis_audit import audit_firewalld_default_zone_is_set
 
 
 def mock_firewalld_default_zone_is_set(*args):
@@ -16,7 +16,7 @@ def mock_firewalld_default_zone_is_set(*args):
     return SimpleNamespace(stdout=output, stderr=error, returncode=returncode)
 
 
-def mock_firewalld_not_running(self, cmd):
+def mock_firewalld_not_running(cmd):
     output = ['']
     error = ['FirewallD is not running']
     returncode = 252
@@ -24,18 +24,15 @@ def mock_firewalld_not_running(self, cmd):
     return SimpleNamespace(stdout=output, stderr=error, returncode=returncode)
 
 
-test = CISAudit()
-
-
-@patch.object(CISAudit, "_shellexec", mock_firewalld_default_zone_is_set)
+@patch("cis_audit._shellexec", mock_firewalld_default_zone_is_set)
 def test_firewalld_defaullt_zone_set_pass():
-    state = test.audit_firewalld_default_zone_is_set()
+    state = audit_firewalld_default_zone_is_set()
     assert state == 0
 
 
-@patch.object(CISAudit, "_shellexec", mock_firewalld_not_running)
+@patch("cis_audit._shellexec", mock_firewalld_not_running)
 def test_firewalld_not_running():
-    state = test.audit_firewalld_default_zone_is_set()
+    state = audit_firewalld_default_zone_is_set()
     assert state == 1
 
 

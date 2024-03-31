@@ -5,10 +5,10 @@ from unittest.mock import patch
 
 import pytest
 
-from cis_audit import CISAudit
+from cis_audit import audit_shadow_group_is_empty
 
 
-def mock_shadow_group_is_empty(self, cmd):
+def mock_shadow_group_is_empty(cmd):
     output = ['']
     error = ['']
     returncode = 0
@@ -16,7 +16,7 @@ def mock_shadow_group_is_empty(self, cmd):
     return SimpleNamespace(stdout=output, stderr=error, returncode=returncode)
 
 
-def mock_shadow_group_is_not_empty(self, cmd):
+def mock_shadow_group_is_not_empty(cmd):
     output = ['user']
     error = ['']
     returncode = 0
@@ -24,7 +24,7 @@ def mock_shadow_group_is_not_empty(self, cmd):
     return SimpleNamespace(stdout=output, stderr=error, returncode=returncode)
 
 
-def mock_shadow_group_is_absent(self, cmd):
+def mock_shadow_group_is_absent(cmd):
     output = ['']
     error = ['']
     returncode = 0
@@ -32,24 +32,21 @@ def mock_shadow_group_is_absent(self, cmd):
     return SimpleNamespace(stdout=output, stderr=error, returncode=returncode)
 
 
-test = CISAudit()
-
-
-@patch.object(CISAudit, "_shellexec", mock_shadow_group_is_empty)
+@patch("cis_audit._shellexec", mock_shadow_group_is_empty)
 def test_audit_shadow_group_is_empty_pass():
-    state = test.audit_shadow_group_is_empty()
+    state = audit_shadow_group_is_empty()
     assert state == 0
 
 
-@patch.object(CISAudit, "_shellexec", mock_shadow_group_is_absent)
+@patch("cis_audit._shellexec", mock_shadow_group_is_absent)
 def test_audit_shadow_group_is_absent_pass():
-    state = test.audit_shadow_group_is_empty()
+    state = audit_shadow_group_is_empty()
     assert state == 0
 
 
-@patch.object(CISAudit, "_shellexec", mock_shadow_group_is_not_empty)
+@patch("cis_audit._shellexec", mock_shadow_group_is_not_empty)
 def test_audit_shadow_group_is_empty_fail():
-    state = test.audit_shadow_group_is_empty()
+    state = audit_shadow_group_is_empty()
     assert state == 3
 
 

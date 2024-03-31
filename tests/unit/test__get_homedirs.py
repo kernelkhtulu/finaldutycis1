@@ -12,10 +12,10 @@ from unittest.mock import patch
 
 import pytest
 
-from cis_audit import CISAudit
+from cis_audit import _get_homedirs
 
 
-def mock_homedirs_data(self, cmd):
+def mock_homedirs_data(cmd):
     stderr = []
     stdout = [
         'root 0 /root',
@@ -26,12 +26,9 @@ def mock_homedirs_data(self, cmd):
     return SimpleNamespace(stdout=stdout, stderr=stderr, returncode=returncode)
 
 
-test = CISAudit()
-
-
-@patch.object(CISAudit, "_shellexec", mock_homedirs_data)
+@patch("cis_audit._shellexec", mock_homedirs_data)
 def test_get_homedirs_pass():
-    homedirs = test._get_homedirs()
+    homedirs = _get_homedirs()
     homedirs_list = list(homedirs)
 
     assert isinstance(homedirs, GeneratorType)
@@ -40,4 +37,4 @@ def test_get_homedirs_pass():
 
 
 if __name__ == '__main__':
-    pytest.main([__file__, '--no-cov', '-W', 'ignore:Module already imported:pytest.PytestWarning'])
+    pytest.main([__file__, '--no-cov', '-W', 'ignore:Module already imported:pyPytestWarning'])

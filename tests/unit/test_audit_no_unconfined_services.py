@@ -5,10 +5,10 @@ from unittest.mock import patch
 
 import pytest
 
-from cis_audit import CISAudit
+from cis_audit import audit_no_unconfined_services
 
 
-def mock_unconfined_services_pass(self, cmd):
+def mock_unconfined_services_pass(cmd):
     stdout = ['']
     stderr = ['']
     returncode = 1
@@ -16,7 +16,7 @@ def mock_unconfined_services_pass(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-def mock_unconfined_services_fail(self, cmd):
+def mock_unconfined_services_fail(cmd):
     stdout = ['system_u:system_r:unconfined_service_t:s0 720 ? 00:03:07 VBoxService']
     stderr = ['']
     returncode = 0
@@ -24,15 +24,15 @@ def mock_unconfined_services_fail(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-@patch.object(CISAudit, "_shellexec", mock_unconfined_services_pass)
+@patch("cis_audit._shellexec", mock_unconfined_services_pass)
 def test_no_unconfined_services_pass():
-    state = CISAudit().audit_no_unconfined_services()
+    state = audit_no_unconfined_services()
     assert state == 0
 
 
-@patch.object(CISAudit, "_shellexec", mock_unconfined_services_fail)
+@patch("cis_audit._shellexec", mock_unconfined_services_fail)
 def test_no_unconfined_services_fail():
-    state = CISAudit().audit_no_unconfined_services()
+    state = audit_no_unconfined_services()
     assert state == 1
 
 

@@ -5,10 +5,10 @@ from unittest.mock import patch
 
 import pytest
 
-from cis_audit import CISAudit
+from cis_audit import audit_ntp_is_configured
 
 
-def mock_ntp_configured_pass(self, cmd):
+def mock_ntp_configured_pass(cmd):
     if 'is-enabled' in cmd:
         stdout = ['enabled']
     elif 'is-active' in cmd:
@@ -26,7 +26,7 @@ def mock_ntp_configured_pass(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-def mock_ntp_configured_fail(self, cmd):
+def mock_ntp_configured_fail(cmd):
     if 'is-enabled' in cmd:
         stdout = ['disabled']
         returncode = 0
@@ -48,15 +48,15 @@ def mock_ntp_configured_fail(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-@patch.object(CISAudit, "_shellexec", mock_ntp_configured_pass)
+@patch("cis_audit._shellexec", mock_ntp_configured_pass)
 def test_ntp_is_configured_pass():
-    state = CISAudit().audit_ntp_is_configured()
+    state = audit_ntp_is_configured()
     assert state == 0
 
 
-@patch.object(CISAudit, "_shellexec", mock_ntp_configured_fail)
+@patch("cis_audit._shellexec", mock_ntp_configured_fail)
 def test_ntp_is_configured_fail():
-    state = CISAudit().audit_ntp_is_configured()
+    state = audit_ntp_is_configured()
     assert state == 31
 
 

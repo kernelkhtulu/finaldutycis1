@@ -5,10 +5,10 @@ from unittest.mock import patch
 
 import pytest
 
-from cis_audit import CISAudit
+from cis_audit import audit_etc_passwd_gids_exist_in_etc_group
 
 
-def mock_gids_in_passwd_pass(self, cmd):
+def mock_gids_in_passwd_pass(cmd):
     if '/etc/group' in cmd:
         output = ['1000', '1001', '']
     elif '/etc/passwd' in cmd:
@@ -21,7 +21,7 @@ def mock_gids_in_passwd_pass(self, cmd):
     return SimpleNamespace(stdout=output, stderr=error, returncode=returncode)
 
 
-def mock_gids_in_passwd_fail(self, cmd):
+def mock_gids_in_passwd_fail(cmd):
     if '/etc/group' in cmd:
         output = ['1000', '']
     elif '/etc/passwd' in cmd:
@@ -34,18 +34,15 @@ def mock_gids_in_passwd_fail(self, cmd):
     return SimpleNamespace(stdout=output, stderr=error, returncode=returncode)
 
 
-test = CISAudit()
-
-
-@patch.object(CISAudit, "_shellexec", mock_gids_in_passwd_pass)
+@patch("cis_audit._shellexec", mock_gids_in_passwd_pass)
 def test_gids_from_etcpasswd_are_in_etcgroup_pass():
-    state = test.audit_etc_passwd_gids_exist_in_etc_group()
+    state = audit_etc_passwd_gids_exist_in_etc_group()
     assert state == 0
 
 
-@patch.object(CISAudit, "_shellexec", mock_gids_in_passwd_fail)
+@patch("cis_audit._shellexec", mock_gids_in_passwd_fail)
 def test_gids_from_etcpasswd_are_in_etcgroup_fail():
-    state = test.audit_etc_passwd_gids_exist_in_etc_group()
+    state = audit_etc_passwd_gids_exist_in_etc_group()
     assert state == 1
 
 

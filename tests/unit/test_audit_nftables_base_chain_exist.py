@@ -5,10 +5,10 @@ from unittest.mock import patch
 
 import pytest
 
-from cis_audit import CISAudit
+from cis_audit import audit_nftables_base_chains_exist
 
 
-def mock_nftables_base_chains_exist_pass(self, cmd):
+def mock_nftables_base_chains_exist_pass(cmd):
     returncode = 0
     stderr = ['']
 
@@ -25,7 +25,7 @@ def mock_nftables_base_chains_exist_pass(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-def mock_nftables_base_chains_exist_fail_input(self, cmd):
+def mock_nftables_base_chains_exist_fail_input(cmd):
     returncode = 0
     stderr = ['']
 
@@ -43,7 +43,7 @@ def mock_nftables_base_chains_exist_fail_input(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-def mock_nftables_base_chains_exist_fail_forward(self, cmd):
+def mock_nftables_base_chains_exist_fail_forward(cmd):
     returncode = 0
     stderr = ['']
 
@@ -61,7 +61,7 @@ def mock_nftables_base_chains_exist_fail_forward(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-def mock_nftables_base_chains_exist_fail_output(self, cmd):
+def mock_nftables_base_chains_exist_fail_output(cmd):
     returncode = 0
     stderr = ['']
 
@@ -79,7 +79,7 @@ def mock_nftables_base_chains_exist_fail_output(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-def mock_nftables_base_chains_exist_fail_all(self, cmd):
+def mock_nftables_base_chains_exist_fail_all(cmd):
     stdout = ['']
     stderr = ['']
     returncode = 1
@@ -87,33 +87,34 @@ def mock_nftables_base_chains_exist_fail_all(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-class TestNFTablesBaseChainsExist:
-    test = CISAudit()
+@patch("cis_audit._shellexec", mock_nftables_base_chains_exist_pass)
+def test_audit_nftables_base_chains_exist_pass():
+    state = audit_nftables_base_chains_exist()
+    assert state == 0
 
-    @patch.object(CISAudit, "_shellexec", mock_nftables_base_chains_exist_pass)
-    def test_audit_nftables_base_chains_exist_pass(self):
-        state = self.test.audit_nftables_base_chains_exist()
-        assert state == 0
 
-    @patch.object(CISAudit, "_shellexec", mock_nftables_base_chains_exist_fail_input)
-    def test_audit_nftables_base_chains_exist_fail_input(self):
-        state = self.test.audit_nftables_base_chains_exist()
-        assert state == 1
+@patch("cis_audit._shellexec", mock_nftables_base_chains_exist_fail_input)
+def test_audit_nftables_base_chains_exist_fail_input():
+    state = audit_nftables_base_chains_exist()
+    assert state == 1
 
-    @patch.object(CISAudit, "_shellexec", mock_nftables_base_chains_exist_fail_forward)
-    def test_audit_nftables_base_chains_exist_fail_forward(self):
-        state = self.test.audit_nftables_base_chains_exist()
-        assert state == 2
 
-    @patch.object(CISAudit, "_shellexec", mock_nftables_base_chains_exist_fail_output)
-    def test_audit_nftables_base_chains_exist_fail_output(self):
-        state = self.test.audit_nftables_base_chains_exist()
-        assert state == 4
+@patch("cis_audit._shellexec", mock_nftables_base_chains_exist_fail_forward)
+def test_audit_nftables_base_chains_exist_fail_forward():
+    state = audit_nftables_base_chains_exist()
+    assert state == 2
 
-    @patch.object(CISAudit, "_shellexec", mock_nftables_base_chains_exist_fail_all)
-    def test_audit_nftables_base_chains_exist_fail_all(self):
-        state = self.test.audit_nftables_base_chains_exist()
-        assert state == 7
+
+@patch("cis_audit._shellexec", mock_nftables_base_chains_exist_fail_output)
+def test_audit_nftables_base_chains_exist_fail_output():
+    state = audit_nftables_base_chains_exist()
+    assert state == 4
+
+
+@patch("cis_audit._shellexec", mock_nftables_base_chains_exist_fail_all)
+def test_audit_nftables_base_chains_exist_fail_all():
+    state = audit_nftables_base_chains_exist()
+    assert state == 7
 
 
 if __name__ == '__main__':

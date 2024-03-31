@@ -5,10 +5,10 @@ from unittest.mock import patch
 
 import pytest
 
-from cis_audit import CISAudit
+from cis_audit import audit_nftables_default_deny_policy
 
 
-def mock_nftables_default_deny_policy_pass(self, cmd):
+def mock_nftables_default_deny_policy_pass(cmd):
     returncode = 0
     stderr = ['']
 
@@ -25,7 +25,7 @@ def mock_nftables_default_deny_policy_pass(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-def mock_nftables_default_deny_policy_fail(self, cmd):
+def mock_nftables_default_deny_policy_fail(cmd):
     stdout = ['']
     stderr = ['']
     returncode = 1
@@ -33,15 +33,15 @@ def mock_nftables_default_deny_policy_fail(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-@patch.object(CISAudit, "_shellexec", mock_nftables_default_deny_policy_pass)
+@patch("cis_audit._shellexec", mock_nftables_default_deny_policy_pass)
 def test_audit_nftables_default_deny_policy_pass():
-    state = CISAudit().audit_nftables_default_deny_policy()
+    state = audit_nftables_default_deny_policy()
     assert state == 0
 
 
-@patch.object(CISAudit, "_shellexec", mock_nftables_default_deny_policy_fail)
+@patch("cis_audit._shellexec", mock_nftables_default_deny_policy_fail)
 def test_audit_nftables_default_deny_policy_fail():
-    state = CISAudit().audit_nftables_default_deny_policy()
+    state = audit_nftables_default_deny_policy()
     assert state == 7
 
 

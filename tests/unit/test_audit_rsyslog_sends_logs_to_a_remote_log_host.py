@@ -5,12 +5,10 @@ from unittest.mock import patch
 
 import pytest
 
-from cis_audit import CISAudit
-
-test = CISAudit()
+from cis_audit import audit_rsyslog_sends_logs_to_a_remote_log_host
 
 
-def mock_audit_rsyslog_sends_logs_to_a_remote_log_host_pass1(self, cmd):
+def mock_audit_rsyslog_sends_logs_to_a_remote_log_host_pass1(cmd):
     returncode = 0
     stderr = ['']
     stdout = ['']
@@ -24,7 +22,7 @@ def mock_audit_rsyslog_sends_logs_to_a_remote_log_host_pass1(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-def mock_audit_rsyslog_sends_logs_to_a_remote_log_host_pass2(self, cmd):
+def mock_audit_rsyslog_sends_logs_to_a_remote_log_host_pass2(cmd):
     returncode = 0
     stderr = ['']
     stdout = ['']
@@ -37,7 +35,7 @@ def mock_audit_rsyslog_sends_logs_to_a_remote_log_host_pass2(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-def mock_audit_rsyslog_sends_logs_to_a_remote_log_host_fail(self, cmd):
+def mock_audit_rsyslog_sends_logs_to_a_remote_log_host_fail(cmd):
     stdout = ['']
     stderr = ['']
     returncode = 1
@@ -45,21 +43,21 @@ def mock_audit_rsyslog_sends_logs_to_a_remote_log_host_fail(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-@patch.object(CISAudit, "_shellexec", mock_audit_rsyslog_sends_logs_to_a_remote_log_host_pass1)
+@patch("cis_audit._shellexec", mock_audit_rsyslog_sends_logs_to_a_remote_log_host_pass1)
 def test_audit_rsyslog_sends_logs_to_a_remote_log_host_pass1():
-    state = test.audit_rsyslog_sends_logs_to_a_remote_log_host()
+    state = audit_rsyslog_sends_logs_to_a_remote_log_host()
     assert state == 0
 
 
-@patch.object(CISAudit, "_shellexec", mock_audit_rsyslog_sends_logs_to_a_remote_log_host_pass2)
+@patch("cis_audit._shellexec", mock_audit_rsyslog_sends_logs_to_a_remote_log_host_pass2)
 def test_audit_rsyslog_sends_logs_to_a_remote_log_host_pass2():
-    state = test.audit_rsyslog_sends_logs_to_a_remote_log_host()
+    state = audit_rsyslog_sends_logs_to_a_remote_log_host()
     assert state == 0
 
 
-@patch.object(CISAudit, "_shellexec", mock_audit_rsyslog_sends_logs_to_a_remote_log_host_fail)
+@patch("cis_audit._shellexec", mock_audit_rsyslog_sends_logs_to_a_remote_log_host_fail)
 def test_audit_rsyslog_sends_logs_to_a_remote_log_host_fail():
-    state = test.audit_rsyslog_sends_logs_to_a_remote_log_host()
+    state = audit_rsyslog_sends_logs_to_a_remote_log_host()
     assert state == 1
 
 

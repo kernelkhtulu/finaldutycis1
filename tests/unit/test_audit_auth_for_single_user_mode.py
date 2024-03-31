@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from cis_audit import CISAudit
+from cis_audit import audit_auth_for_single_user_mode
 
 
 def mock_command_pass(*args, **kwargs):
@@ -24,18 +24,16 @@ def mock_command_fail(*args, **kwargs):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-class TestAuthForSingleUserMode:
-    test = CISAudit()
+@patch("cis_audit._shellexec", mock_command_pass)
+def test_auth_for_single_user_pass():
+    state = audit_auth_for_single_user_mode()
+    assert state == 0
 
-    @patch.object(CISAudit, "_shellexec", mock_command_pass)
-    def test_auth_for_single_user_pass(self):
-        state = self.test.audit_auth_for_single_user_mode()
-        assert state == 0
 
-    @patch.object(CISAudit, "_shellexec", mock_command_fail)
-    def test_auth_for_single_user_fail(self):
-        state = self.test.audit_auth_for_single_user_mode()
-        assert state == 3
+@patch("cis_audit._shellexec", mock_command_fail)
+def test_auth_for_single_user_fail():
+    state = audit_auth_for_single_user_mode()
+    assert state == 3
 
 
 if __name__ == '__main__':

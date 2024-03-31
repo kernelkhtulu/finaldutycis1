@@ -5,10 +5,10 @@ from unittest.mock import patch
 
 import pytest
 
-from cis_audit import CISAudit
+from cis_audit import audit_system_accounts_are_secured
 
 
-def mock_system_accounts_are_secured(self, cmd):
+def mock_system_accounts_are_secured(cmd):
     if 'UID_MIN' in cmd:
         output = ['1000', '']
     else:
@@ -26,7 +26,7 @@ def mock_system_accounts_are_secured(self, cmd):
     return SimpleNamespace(stdout=output, stderr=error, returncode=returncode)
 
 
-def mock_system_accounts_are_not_secured(self, cmd):
+def mock_system_accounts_are_not_secured(cmd):
     if 'UID_MIN' in cmd:
         output = ['1000', '']
     else:
@@ -39,18 +39,15 @@ def mock_system_accounts_are_not_secured(self, cmd):
     return SimpleNamespace(stdout=output, stderr=error, returncode=returncode)
 
 
-test = CISAudit()
-
-
-@patch.object(CISAudit, "_shellexec", mock_system_accounts_are_secured)
+@patch("cis_audit._shellexec", mock_system_accounts_are_secured)
 def test_system_accounts_are_secured():
-    state = test.audit_system_accounts_are_secured()
+    state = audit_system_accounts_are_secured()
     assert state == 0
 
 
-@patch.object(CISAudit, "_shellexec", mock_system_accounts_are_not_secured)
+@patch("cis_audit._shellexec", mock_system_accounts_are_not_secured)
 def test_system_accounts_are_not_secured():
-    state = test.audit_system_accounts_are_secured()
+    state = audit_system_accounts_are_secured()
     assert state == 1
 
 

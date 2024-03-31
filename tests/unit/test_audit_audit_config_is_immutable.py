@@ -5,12 +5,10 @@ from unittest.mock import patch
 
 import pytest
 
-from cis_audit import CISAudit
-
-test = CISAudit()
+from cis_audit import audit_audit_config_is_immutable
 
 
-def mock_audit_audit_config_is_immutable_pass(self, cmd):
+def mock_audit_audit_config_is_immutable_pass(cmd):
     stdout = [
         '-e 2',
         '',
@@ -21,7 +19,7 @@ def mock_audit_audit_config_is_immutable_pass(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-def mock_audit_audit_config_is_immutable_fail(self, cmd):
+def mock_audit_audit_config_is_immutable_fail(cmd):
     stdout = ['']
     stderr = ['']
     returncode = 1
@@ -29,15 +27,15 @@ def mock_audit_audit_config_is_immutable_fail(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-@patch.object(CISAudit, "_shellexec", mock_audit_audit_config_is_immutable_pass)
+@patch("cis_audit._shellexec", mock_audit_audit_config_is_immutable_pass)
 def test_audit_audit_config_is_immutable_pass():
-    state = test.audit_audit_config_is_immutable()
+    state = audit_audit_config_is_immutable()
     assert state == 0
 
 
-@patch.object(CISAudit, "_shellexec", mock_audit_audit_config_is_immutable_fail)
+@patch("cis_audit._shellexec", mock_audit_audit_config_is_immutable_fail)
 def test_audit_audit_config_is_immutable_fail():
-    state = test.audit_audit_config_is_immutable()
+    state = audit_audit_config_is_immutable()
     assert state == 1
 
 

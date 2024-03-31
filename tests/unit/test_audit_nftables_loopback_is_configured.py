@@ -5,10 +5,10 @@ from unittest.mock import patch
 
 import pytest
 
-from cis_audit import CISAudit
+from cis_audit import audit_nftables_loopback_is_configured
 
 
-def mock_nftables_loopback_is_configured_pass(self, cmd):
+def mock_nftables_loopback_is_configured_pass(cmd):
     returncode = 0
     stderr = ['']
 
@@ -25,7 +25,7 @@ def mock_nftables_loopback_is_configured_pass(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-def mock_nftables_loopback_is_configured_fail(self, cmd):
+def mock_nftables_loopback_is_configured_fail(cmd):
     stdout = ['']
     stderr = ['']
     returncode = 1
@@ -33,15 +33,15 @@ def mock_nftables_loopback_is_configured_fail(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-@patch.object(CISAudit, "_shellexec", mock_nftables_loopback_is_configured_pass)
+@patch("cis_audit._shellexec", mock_nftables_loopback_is_configured_pass)
 def test_audit_nftables_loopback_is_configured_pass():
-    state = CISAudit().audit_nftables_loopback_is_configured()
+    state = audit_nftables_loopback_is_configured()
     assert state == 0
 
 
-@patch.object(CISAudit, "_shellexec", mock_nftables_loopback_is_configured_fail)
+@patch("cis_audit._shellexec", mock_nftables_loopback_is_configured_fail)
 def test_audit_nftables_loopback_is_configured_fail_all():
-    state = CISAudit().audit_nftables_loopback_is_configured()
+    state = audit_nftables_loopback_is_configured()
     assert state == 7
 
 

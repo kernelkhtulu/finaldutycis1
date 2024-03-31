@@ -5,10 +5,10 @@ from unittest.mock import patch
 
 import pytest
 
-from cis_audit import CISAudit
+from cis_audit import audit_audit_logs_not_automatically_deleted
 
 
-def mock_audit_logs_not_automatically_deleted_pass(self, cmd):
+def mock_audit_logs_not_automatically_deleted_pass(cmd):
     stdout = ['max_log_file = keep_logs', '']
     stderr = ['']
     returncode = 0
@@ -16,7 +16,7 @@ def mock_audit_logs_not_automatically_deleted_pass(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-def mock_audit_logs_not_automatically_deleted_fail(self, cmd):
+def mock_audit_logs_not_automatically_deleted_fail(cmd):
     stdout = ['']
     stderr = ['']
     returncode = 1
@@ -24,18 +24,15 @@ def mock_audit_logs_not_automatically_deleted_fail(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-test = CISAudit()
-
-
-@patch.object(CISAudit, "_shellexec", mock_audit_logs_not_automatically_deleted_pass)
+@patch("cis_audit._shellexec", mock_audit_logs_not_automatically_deleted_pass)
 def test_audit_audit_logs_not_automatically_deleted_pass():
-    state = test.audit_audit_logs_not_automatically_deleted()
+    state = audit_audit_logs_not_automatically_deleted()
     assert state == 0
 
 
-@patch.object(CISAudit, "_shellexec", mock_audit_logs_not_automatically_deleted_fail)
+@patch("cis_audit._shellexec", mock_audit_logs_not_automatically_deleted_fail)
 def test_audit_audit_logs_not_automatically_deleted_fail():
-    state = test.audit_audit_logs_not_automatically_deleted()
+    state = audit_audit_logs_not_automatically_deleted()
     assert state == 1
 
 

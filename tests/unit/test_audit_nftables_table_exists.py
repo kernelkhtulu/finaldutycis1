@@ -5,10 +5,10 @@ from unittest.mock import patch
 
 import pytest
 
-from cis_audit import CISAudit
+from cis_audit import audit_nftables_table_exists
 
 
-def mock_nftables_table_exists_pass(self, cmd):
+def mock_nftables_table_exists_pass(cmd):
     stdout = ['table inet filter']
     stderr = ['']
     returncode = 0
@@ -16,7 +16,7 @@ def mock_nftables_table_exists_pass(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-def mock_nftables_table_exists_fail(self, cmd):
+def mock_nftables_table_exists_fail(cmd):
     stdout = ['']
     stderr = ['']
     returncode = 0
@@ -24,15 +24,15 @@ def mock_nftables_table_exists_fail(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-@patch.object(CISAudit, "_shellexec", mock_nftables_table_exists_pass)
+@patch("cis_audit._shellexec", mock_nftables_table_exists_pass)
 def test_audit_nftables_table_exists_pass():
-    state = CISAudit().audit_nftables_table_exists()
+    state = audit_nftables_table_exists()
     assert state == 0
 
 
-@patch.object(CISAudit, "_shellexec", mock_nftables_table_exists_fail)
+@patch("cis_audit._shellexec", mock_nftables_table_exists_fail)
 def test_audit_nftables_table_exists_fail():
-    state = CISAudit().audit_nftables_table_exists()
+    state = audit_nftables_table_exists()
     assert state == 1
 
 

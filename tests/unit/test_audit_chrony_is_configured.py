@@ -5,10 +5,10 @@ from unittest.mock import patch
 
 import pytest
 
-from cis_audit import CISAudit
+from cis_audit import audit_chrony_is_configured
 
 
-def mock_chrony_configured_pass(self, cmd):
+def mock_chrony_configured_pass(cmd):
     stderr = ['']
     returncode = 0
 
@@ -24,7 +24,7 @@ def mock_chrony_configured_pass(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-def mock_chrony_configured_fail(self, cmd):
+def mock_chrony_configured_fail(cmd):
     returncode = 0
     stderr = ['']
     stdout = ['']
@@ -41,19 +41,16 @@ def mock_chrony_configured_fail(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-test = CISAudit()
+@patch("cis_audit._shellexec", mock_chrony_configured_pass)
+def test_chrony_is_configured_pass():
+    state = audit_chrony_is_configured()
+    assert state == 0
 
 
-class TestChronyIsConfigured:
-    @patch.object(CISAudit, "_shellexec", mock_chrony_configured_pass)
-    def test_chrony_is_configure_pass(self):
-        state = test.audit_chrony_is_configured()
-        assert state == 0
-
-    @patch.object(CISAudit, "_shellexec", mock_chrony_configured_fail)
-    def test_chrony_is_configure_fail(self):
-        state = test.audit_chrony_is_configured()
-        assert state == 15
+@patch("cis_audit._shellexec", mock_chrony_configured_fail)
+def test_chrony_is_configured_fail():
+    state = audit_chrony_is_configured()
+    assert state == 15
 
 
 if __name__ == '__main__':

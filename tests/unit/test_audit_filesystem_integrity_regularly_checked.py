@@ -5,10 +5,10 @@ from unittest.mock import patch
 
 import pytest
 
-from cis_audit import CISAudit
+from cis_audit import audit_filesystem_integrity_regularly_checked
 
 
-def mock_filesystem_integrity_pass_cron(self, cmd):
+def mock_filesystem_integrity_pass_cron(cmd):
     output = ['/etc/cron.d/aide-check']
     error = ['']
     returncode = 0
@@ -16,7 +16,7 @@ def mock_filesystem_integrity_pass_cron(self, cmd):
     return SimpleNamespace(stdout=output, stderr=error, returncode=returncode)
 
 
-def mock_filesystem_integrity_pass_systemd(self, cmd, *args, **kwargs):
+def mock_filesystem_integrity_pass_systemd(cmd, *args, **kwargs):
     if 'is-enabled' in cmd:
         output = ['enabled']
         error = ['']
@@ -33,7 +33,7 @@ def mock_filesystem_integrity_pass_systemd(self, cmd, *args, **kwargs):
     return SimpleNamespace(stdout=output, stderr=error, returncode=returncode)
 
 
-def mock_filesystem_integrity_fail(self, cmd):
+def mock_filesystem_integrity_fail(cmd):
     output = ['']
     error = ['']
     returncode = 1
@@ -41,25 +41,25 @@ def mock_filesystem_integrity_fail(self, cmd):
     return SimpleNamespace(stdout=output, stderr=error, returncode=returncode)
 
 
-def mock_filesystem_integrity_error(self, cmd):
+def mock_filesystem_integrity_error(cmd):
     raise Exception
 
 
-@patch.object(CISAudit, "_shellexec", mock_filesystem_integrity_pass_cron)
+@patch("cis_audit._shellexec", mock_filesystem_integrity_pass_cron)
 def test_filesystem_integrity_pass_crond():
-    state = CISAudit().audit_filesystem_integrity_regularly_checked()
+    state = audit_filesystem_integrity_regularly_checked()
     assert state == 0
 
 
-@patch.object(CISAudit, "_shellexec", mock_filesystem_integrity_pass_systemd)
+@patch("cis_audit._shellexec", mock_filesystem_integrity_pass_systemd)
 def test_filesystem_integrity_pass_systemd():
-    state = CISAudit().audit_filesystem_integrity_regularly_checked()
+    state = audit_filesystem_integrity_regularly_checked()
     assert state == 0
 
 
-@patch.object(CISAudit, "_shellexec", mock_filesystem_integrity_fail)
+@patch("cis_audit._shellexec", mock_filesystem_integrity_fail)
 def test_filesystem_integrity_fail():
-    state = CISAudit().audit_filesystem_integrity_regularly_checked()
+    state = audit_filesystem_integrity_regularly_checked()
     assert state == 1
 
 

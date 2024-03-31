@@ -5,10 +5,10 @@ from unittest.mock import patch
 
 import pytest
 
-from cis_audit import CISAudit
+from cis_audit import audit_auditing_for_processes_prior_to_start_is_enabled
 
 
-def mock_auditing_for_processes_prior_to_start_is_enabled_pass_efidir(self, cmd):
+def mock_auditing_for_processes_prior_to_start_is_enabled_pass_efidir(cmd):
     if 'find /boot/efi/EFI' in cmd:
         stdout = ['/boot/efi/EFI/centos/grub.cfg', '']
     elif R'grep "^\s*linux"' in cmd:
@@ -22,7 +22,7 @@ def mock_auditing_for_processes_prior_to_start_is_enabled_pass_efidir(self, cmd)
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-def mock_auditing_for_processes_prior_to_start_is_enabled_pass_grubdir(self, cmd):
+def mock_auditing_for_processes_prior_to_start_is_enabled_pass_grubdir(cmd):
     if 'find /boot ' in cmd:
         stdout = ['/boot/grub2/grub.cfg', '']
     elif R'grep "^\s*linux"' in cmd:
@@ -36,7 +36,7 @@ def mock_auditing_for_processes_prior_to_start_is_enabled_pass_grubdir(self, cmd
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-def mock_auditing_for_processes_prior_to_start_is_enabled_fail(self, cmd):
+def mock_auditing_for_processes_prior_to_start_is_enabled_fail(cmd):
     if R'grep "^\s*linux"' in cmd:
         stdout = ['FAILED', '']
     else:
@@ -48,24 +48,21 @@ def mock_auditing_for_processes_prior_to_start_is_enabled_fail(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-test = CISAudit()
-
-
-@patch.object(CISAudit, "_shellexec", mock_auditing_for_processes_prior_to_start_is_enabled_pass_efidir)
+@patch("cis_audit._shellexec", mock_auditing_for_processes_prior_to_start_is_enabled_pass_efidir)
 def test_audit_auditing_for_processes_prior_to_start_is_enabled_pass_efidir():
-    state = test.audit_auditing_for_processes_prior_to_start_is_enabled()
+    state = audit_auditing_for_processes_prior_to_start_is_enabled()
     assert state == 0
 
 
-@patch.object(CISAudit, "_shellexec", mock_auditing_for_processes_prior_to_start_is_enabled_pass_grubdir)
+@patch("cis_audit._shellexec", mock_auditing_for_processes_prior_to_start_is_enabled_pass_grubdir)
 def test_audit_auditing_for_processes_prior_to_start_is_enabled_pass_grubdir():
-    state = test.audit_auditing_for_processes_prior_to_start_is_enabled()
+    state = audit_auditing_for_processes_prior_to_start_is_enabled()
     assert state == 0
 
 
-@patch.object(CISAudit, "_shellexec", mock_auditing_for_processes_prior_to_start_is_enabled_fail)
+@patch("cis_audit._shellexec", mock_auditing_for_processes_prior_to_start_is_enabled_fail)
 def test_audit_auditing_for_processes_prior_to_start_is_enabled_fail():
-    state = test.audit_auditing_for_processes_prior_to_start_is_enabled()
+    state = audit_auditing_for_processes_prior_to_start_is_enabled()
     assert state == 1
 
 

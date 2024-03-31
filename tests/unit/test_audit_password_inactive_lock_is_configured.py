@@ -5,12 +5,10 @@ from unittest.mock import patch
 
 import pytest
 
-from cis_audit import CISAudit
-
-test = CISAudit()
+from cis_audit import audit_password_inactive_lock_is_configured
 
 
-def mock_password_inactive_lock_is_configured_pass(self, cmd):
+def mock_password_inactive_lock_is_configured_pass(cmd):
     returncode = 0
     stderr = ['']
 
@@ -25,7 +23,7 @@ def mock_password_inactive_lock_is_configured_pass(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-def mock_password_inactive_lock_is_configured_fail(self, cmd):
+def mock_password_inactive_lock_is_configured_fail(cmd):
     returncode = 0
     stderr = ['']
 
@@ -40,7 +38,7 @@ def mock_password_inactive_lock_is_configured_fail(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-def mock_password_inactive_lock_is_configured_fail_disabled(self, cmd):
+def mock_password_inactive_lock_is_configured_fail_disabled(cmd):
     returncode = 0
     stderr = ['']
 
@@ -55,21 +53,21 @@ def mock_password_inactive_lock_is_configured_fail_disabled(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-@patch.object(CISAudit, "_shellexec", mock_password_inactive_lock_is_configured_pass)
+@patch("cis_audit._shellexec", mock_password_inactive_lock_is_configured_pass)
 def test_audit_password_inactive_lock_is_configured_pass():
-    state = test.audit_password_inactive_lock_is_configured()
+    state = audit_password_inactive_lock_is_configured()
     assert state == 0
 
 
-@patch.object(CISAudit, "_shellexec", mock_password_inactive_lock_is_configured_fail)
+@patch("cis_audit._shellexec", mock_password_inactive_lock_is_configured_fail)
 def test_audit_password_inactive_lock_is_configured_fail():
-    state = test.audit_password_inactive_lock_is_configured()
+    state = audit_password_inactive_lock_is_configured()
     assert state == 3
 
 
-@patch.object(CISAudit, "_shellexec", mock_password_inactive_lock_is_configured_fail_disabled)
+@patch("cis_audit._shellexec", mock_password_inactive_lock_is_configured_fail_disabled)
 def test_audit_password_inactive_lock_is_configured_fail_disabled():
-    state = test.audit_password_inactive_lock_is_configured()
+    state = audit_password_inactive_lock_is_configured()
     assert state == 3
 
 

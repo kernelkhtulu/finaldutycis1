@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from cis_audit import CISAudit
+from cis_audit import audit_sudo_commands_use_pty
 
 
 def mock_sudo_use_pty_pass(*args, **kwargs):
@@ -28,19 +28,16 @@ def mock_sudo_use_pty_error(*args, **kwargs):
     raise Exception
 
 
-class TestSudoCommandUsePty:
-    test = CISAudit()
-    test_id = '1.1'
+@patch("cis_audit._shellexec", mock_sudo_use_pty_pass)
+def test_sudo_use_pty_pass():
+    state = audit_sudo_commands_use_pty()
+    assert state == 0
 
-    @patch.object(CISAudit, "_shellexec", mock_sudo_use_pty_pass)
-    def test_sudo_use_pty_pass(self):
-        state = self.test.audit_sudo_commands_use_pty()
-        assert state == 0
 
-    @patch.object(CISAudit, "_shellexec", mock_sudo_use_pty_fail)
-    def test_sudo_use_pty_fail(self):
-        state = self.test.audit_sudo_commands_use_pty()
-        assert state == 1
+@patch("cis_audit._shellexec", mock_sudo_use_pty_fail)
+def test_sudo_use_pty_fail():
+    state = audit_sudo_commands_use_pty()
+    assert state == 1
 
 
 if __name__ == '__main__':

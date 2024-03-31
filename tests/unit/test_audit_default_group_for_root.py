@@ -5,12 +5,10 @@ from unittest.mock import patch
 
 import pytest
 
-from cis_audit import CISAudit
-
-test = CISAudit()
+from cis_audit import audit_default_group_for_root
 
 
-def mock_default_group_for_root_pass(self, cmd):
+def mock_default_group_for_root_pass(cmd):
     returncode = 0
     stderr = ['']
     stdout = ['0']
@@ -18,7 +16,7 @@ def mock_default_group_for_root_pass(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-def mock_default_group_for_root_fail(self, cmd):
+def mock_default_group_for_root_fail(cmd):
     returncode = 0
     stderr = ['']
     stdout = ['1']
@@ -26,15 +24,15 @@ def mock_default_group_for_root_fail(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-@patch.object(CISAudit, "_shellexec", mock_default_group_for_root_pass)
+@patch("cis_audit._shellexec", mock_default_group_for_root_pass)
 def test_audit_default_group_for_root_pass():
-    state = test.audit_default_group_for_root()
+    state = audit_default_group_for_root()
     assert state == 0
 
 
-@patch.object(CISAudit, "_shellexec", mock_default_group_for_root_fail)
+@patch("cis_audit._shellexec", mock_default_group_for_root_fail)
 def test_audit_default_group_for_root_fail():
-    state = test.audit_default_group_for_root()
+    state = audit_default_group_for_root()
     assert state == 1
 
 

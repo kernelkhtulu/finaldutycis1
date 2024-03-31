@@ -2,7 +2,7 @@
 
 import pytest
 
-from cis_audit import CISAudit
+from cis_audit import output_csv
 
 results = [
     {'_id': '1', 'description': 'section header'},
@@ -19,7 +19,7 @@ benchmark_version = '3.1.2'
 
 
 def test_output_csv(capsys):
-    CISAudit().output_csv(results=results, separator=',', host_os=host_os, benchmark_version=benchmark_version)
+    output_csv(results=results, separator=',', host_os=host_os, benchmark_version=benchmark_version)
 
     output, error = capsys.readouterr()
     assert error == ''
@@ -35,7 +35,7 @@ def test_output_csv(capsys):
 
 
 def test_output_psv(capsys):
-    CISAudit().output_csv(results=results, separator='|', host_os=host_os, benchmark_version=benchmark_version)
+    output_csv(results=results, separator='|', host_os=host_os, benchmark_version=benchmark_version)
 
     output, error = capsys.readouterr()
     assert error == ''
@@ -51,7 +51,7 @@ def test_output_psv(capsys):
 
 
 def test_output_tsv(capsys):
-    CISAudit().output_csv(results=results, separator='\t', host_os=host_os, benchmark_version=benchmark_version)
+    output_csv(results=results, separator='\t', host_os=host_os, benchmark_version=benchmark_version)
 
     output, error = capsys.readouterr()
     assert error == ''

@@ -7,7 +7,7 @@ name = "pypi"
 
 [dev-packages]
 cis-benchmarks-audit = {editable = true, path = "."}
-black = ">=24.3.0"
+black = "*"
 flake8 = "*"
 isort = "*"
 mock = "*"
@@ -22,4 +22,4 @@ python_version = "3.6"
 [scripts]
 ## https://pipenv.pypa.io/en/stable/scripts.html
 cis-audit = "python3 ./cis_audit.py"
-test-centos7 = "docker -it --rm"
+#test-centos7 = "docker -it --rm"

@@ -13,10 +13,10 @@ from unittest.mock import patch
 import pytest
 from pyfakefs import fake_filesystem
 
-from cis_audit import CISAudit
+from cis_audit import audit_homedirs_ownership
 
 
-def mock_homedirs_data(self, cmd):
+def mock_homedirs_data(cmd):
     output = [
         'root 0 /root',
         'pytest 1000 /home/pytest',
@@ -31,10 +31,9 @@ def mock_homedirs_data(self, cmd):
 ## I know that pyfakefs automatically creates the 'fs' fixture for pytest for us, however stating it
 ##   explicitly helps demonstrate where it's come from for those less familar with it.
 fs = fake_filesystem.FakeFilesystem()
-test = CISAudit()
 
 
-@patch.object(CISAudit, "_shellexec", mock_homedirs_data)
+@patch("cis_audit._shellexec", mock_homedirs_data)
 def test_audit_homedirs_ownership_fail(fs):
     ## Create /root and /home/pytest as root:root
     fake_filesystem.set_uid(0)
@@ -42,11 +41,11 @@ def test_audit_homedirs_ownership_fail(fs):
     fs.create_dir('/root')
     fs.create_dir('/home/pytest')
 
-    state = test.audit_homedirs_ownership()
+    state = audit_homedirs_ownership()
     assert state == 1
 
 
-@patch.object(CISAudit, "_shellexec", mock_homedirs_data)
+@patch("cis_audit._shellexec", mock_homedirs_data)
 def test_audit_homedirs_ownership_pass(fs):
     ## Create /root homedir as root:root
     fake_filesystem.set_uid(0)
@@ -58,7 +57,7 @@ def test_audit_homedirs_ownership_pass(fs):
     fake_filesystem.set_gid(1000)
     fs.create_dir('/home/pytest')
 
-    state = test.audit_homedirs_ownership()
+    state = audit_homedirs_ownership()
     assert state == 0
 
 

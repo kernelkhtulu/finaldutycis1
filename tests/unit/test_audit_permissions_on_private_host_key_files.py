@@ -5,9 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-import cis_audit
-
-test = cis_audit.CISAudit()
+from cis_audit import audit_permissions_on_private_host_key_files
 
 
 def mock_audit_file_permissions_pass(*args, **kwargs):
@@ -18,7 +16,7 @@ def mock_audit_file_permissions_fail(*args, **kwargs):
     return 1
 
 
-def mock_shellexec(self, cmd):
+def mock_shellexec(cmd):
     returncode = 0
     stderr = ['']
     stdout = [
@@ -29,17 +27,17 @@ def mock_shellexec(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-@patch.object(cis_audit.CISAudit, "_shellexec", mock_shellexec)
-@patch.object(cis_audit.CISAudit, "audit_file_permissions", mock_audit_file_permissions_pass)
+@patch("cis_audit._shellexec", mock_shellexec)
+@patch("cis_audit.audit_file_permissions", mock_audit_file_permissions_pass)
 def test_audit_permissions_on_private_host_key_files_pass():
-    state = test.audit_permissions_on_private_host_key_files()
+    state = audit_permissions_on_private_host_key_files()
     assert state == 0
 
 
-@patch.object(cis_audit.CISAudit, "_shellexec", mock_shellexec)
-@patch.object(cis_audit.CISAudit, "audit_file_permissions", mock_audit_file_permissions_fail)
+@patch("cis_audit._shellexec", mock_shellexec)
+@patch("cis_audit.audit_file_permissions", mock_audit_file_permissions_fail)
 def test_audit_permissions_on_private_host_key_files_fail():
-    state = test.audit_permissions_on_private_host_key_files()
+    state = audit_permissions_on_private_host_key_files()
     assert state == 3
 
 

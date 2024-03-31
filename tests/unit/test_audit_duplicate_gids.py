@@ -5,12 +5,10 @@ from unittest.mock import patch
 
 import pytest
 
-from cis_audit import CISAudit
-
-test = CISAudit()
+from cis_audit import audit_duplicate_gids
 
 
-def mock_duplicate_gids_pass(self, cmd):
+def mock_duplicate_gids_pass(cmd):
     returncode = 0
     stderr = ['']
     stdout = ['']
@@ -18,7 +16,7 @@ def mock_duplicate_gids_pass(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-def mock_duplicate_gids_fail(self, cmd):
+def mock_duplicate_gids_fail(cmd):
     returncode = 0
     stderr = ['']
     stdout = ['1000']
@@ -26,15 +24,15 @@ def mock_duplicate_gids_fail(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-@patch.object(CISAudit, "_shellexec", mock_duplicate_gids_pass)
+@patch("cis_audit._shellexec", mock_duplicate_gids_pass)
 def test_audit_duplicate_gids_pass():
-    state = test.audit_duplicate_gids()
+    state = audit_duplicate_gids()
     assert state == 0
 
 
-@patch.object(CISAudit, "_shellexec", mock_duplicate_gids_fail)
+@patch("cis_audit._shellexec", mock_duplicate_gids_fail)
 def test_audit_duplicate_gids_fail():
-    state = test.audit_duplicate_gids()
+    state = audit_duplicate_gids()
     assert state == 1
 
 

@@ -5,12 +5,10 @@ from unittest.mock import patch
 
 import pytest
 
-from cis_audit import CISAudit
-
-test = CISAudit()
+from cis_audit import audit_journald_configured_to_send_logs_to_rsyslog
 
 
-def mock_audit_journald_configured_to_send_logs_to_rsyslog_pass(self, cmd):
+def mock_audit_journald_configured_to_send_logs_to_rsyslog_pass(cmd):
     stdout = [
         'ForwardToSyslog=yes',
         '',
@@ -21,7 +19,7 @@ def mock_audit_journald_configured_to_send_logs_to_rsyslog_pass(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-def mock_audit_journald_configured_to_send_logs_to_rsyslog_fail(self, cmd):
+def mock_audit_journald_configured_to_send_logs_to_rsyslog_fail(cmd):
     stdout = ['']
     stderr = ['']
     returncode = 1
@@ -29,15 +27,15 @@ def mock_audit_journald_configured_to_send_logs_to_rsyslog_fail(self, cmd):
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-@patch.object(CISAudit, "_shellexec", mock_audit_journald_configured_to_send_logs_to_rsyslog_pass)
+@patch("cis_audit._shellexec", mock_audit_journald_configured_to_send_logs_to_rsyslog_pass)
 def test_audit_journald_configured_to_send_logs_to_rsyslog_pass():
-    state = test.audit_journald_configured_to_send_logs_to_rsyslog()
+    state = audit_journald_configured_to_send_logs_to_rsyslog()
     assert state == 0
 
 
-@patch.object(CISAudit, "_shellexec", mock_audit_journald_configured_to_send_logs_to_rsyslog_fail)
+@patch("cis_audit._shellexec", mock_audit_journald_configured_to_send_logs_to_rsyslog_fail)
 def test_audit_journald_configured_to_send_logs_to_rsyslog_fail():
-    state = test.audit_journald_configured_to_send_logs_to_rsyslog()
+    state = audit_journald_configured_to_send_logs_to_rsyslog()
     assert state == 1
 
 

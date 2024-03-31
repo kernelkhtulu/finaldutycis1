@@ -5,12 +5,10 @@ from unittest.mock import patch
 
 import pytest
 
-from cis_audit import CISAudit
-
-test = CISAudit()
+from cis_audit import audit_events_for_system_administrator_commands_are_collected
 
 
-def mock_audit_events_for_system_administrator_commands_are_collected_pass(self, cmd):
+def mock_audit_events_for_system_administrator_commands_are_collected_pass(cmd):
     if 'auditctl' in cmd:
         stdout = [
             '-a always,exit -F arch=b64 -S execve -C uid!=euid -F euid=0 -F auid>=1000 -F auid!=-1 -F key=actions',
@@ -28,7 +26,7 @@ def mock_audit_events_for_system_administrator_commands_are_collected_pass(self,
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-def mock_audit_events_for_system_administrator_commands_are_collected_fail(self, cmd):
+def mock_audit_events_for_system_administrator_commands_are_collected_fail(cmd):
     stdout = ['']
     stderr = ['']
     returncode = 1
@@ -36,15 +34,15 @@ def mock_audit_events_for_system_administrator_commands_are_collected_fail(self,
     return SimpleNamespace(returncode=returncode, stderr=stderr, stdout=stdout)
 
 
-@patch.object(CISAudit, "_shellexec", mock_audit_events_for_system_administrator_commands_are_collected_pass)
+@patch("cis_audit._shellexec", mock_audit_events_for_system_administrator_commands_are_collected_pass)
 def test_audit_events_for_system_administrator_commands_are_collected_pass():
-    state = test.audit_events_for_system_administrator_commands_are_collected()
+    state = audit_events_for_system_administrator_commands_are_collected()
     assert state == 0
 
 
-@patch.object(CISAudit, "_shellexec", mock_audit_events_for_system_administrator_commands_are_collected_fail)
+@patch("cis_audit._shellexec", mock_audit_events_for_system_administrator_commands_are_collected_fail)
 def test_audit_events_for_system_administrator_commands_are_collected_fail():
-    state = test.audit_events_for_system_administrator_commands_are_collected()
+    state = audit_events_for_system_administrator_commands_are_collected()
     assert state == 3
 
 

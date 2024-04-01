@@ -2356,7 +2356,7 @@ def output_text(results, host_os, benchmark_version, stats):
     for entry in results:
         id = entry['_id']
         description = entry['description']
-        level = entry['level'] if 'level' in entry and entry['level'] != None else ""
+        level = entry['level'] if 'level' in entry and entry['level'] is not None else ""
         result = entry['result'] if 'result' in entry else ""
         duration = entry['duration'] if 'duration' in entry else ""
 

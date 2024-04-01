@@ -35,7 +35,7 @@ jobs:
 
       - name: Check minimum required Python version
         run: |
-          pipenv vermin -q -t=${{ matrix.python-versions }}- --violations cis_audit.py
+          pipenv run vermin -q -t=${{ matrix.python-versions }}- --violations cis_audit.py
 
       - name: Check linting with flake8
         run: |

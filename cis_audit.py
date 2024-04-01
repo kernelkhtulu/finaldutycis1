@@ -2377,7 +2377,7 @@ def output_text(results, host_os, benchmark_version, stats):
     print(f'Passed {passed} of {total} tests in {duration} seconds ({skipped} Skipped, {errors} Errors)')
 
 
-def result_stats(results: dict, start_time, end_time) -> dict:
+def result_stats(results: "list[dict]", start_time, end_time) -> dict:
     passed = 0
     failed = 0
     skipped = 0
@@ -2385,7 +2385,7 @@ def result_stats(results: dict, start_time, end_time) -> dict:
 
     time_delta = (end_time - start_time).total_seconds()
     if time_delta >= 10:
-        duration = round(time_delta, 0)
+        duration = round(time_delta, None)
     else:
         duration = round(time_delta, 2)
 

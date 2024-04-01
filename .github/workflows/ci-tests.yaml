@@ -14,15 +14,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.6']
+        python-versions: ['3.6']
 
     steps:
       - uses: actions/checkout@v4 # https://github.com/actions/cache/releases
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python ${{ matrix.python-versions }}
         uses: actions/setup-python@v5 # https://github.com/actions/setup-python/releases
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: ${{ matrix.python-versions }}
 
       - name: Install Pipenv
         run: |
@@ -33,23 +33,25 @@ jobs:
         run: |
           pipenv install --deploy --dev
 
-      - name: Lint with flake8
+      - name: Check minimum required Python version
         run: |
-          pipenv run flake8 *.py
-          pipenv run flake8 tests/*/*.py
+          pipenv vermin -q -t=${{ matrix.python-versions }}- --violations cis_audit.py
 
-      - name: Format with black
+      - name: Check linting with flake8
         run: |
-          pipenv run black --check cis_audit.py
-          pipenv run black --check tests/*/*.py
+          pipenv run flake8 *.py tests/*/*.py
 
-      - name: Test with pytest
+      - name: Check formatting with black
+        run: |
+          pipenv run black --check cis_audit.py tests/*/*.py
+
+      - name: Run unit tests with pytest
         run: |
           pipenv run pytest tests/unit
           pipenv run coverage xml
 
       #- name: Codecov
-      #  uses: codecov/codecov-action@v3  # https://github.com/codecov/codecov-action/releases
+      #  uses: codecov/codecov-action@v4  # https://github.com/codecov/codecov-action/releases
       #
       #  with:
       #    files: coverage.xml
@@ -64,7 +66,7 @@ jobs:
     if: ${{ false }}  # disable for now
 
     steps:
-      - uses: actions/checkout@v4 # https://github.com/actions/cache/releases
+      - uses: actions/checkout@v4 # https://github.com/actions/checkout/releases
 
       - name: Cache Vagrant boxes
         uses: actions/cache@v4 # https://github.com/actions/cache/releases

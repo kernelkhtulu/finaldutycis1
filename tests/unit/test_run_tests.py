@@ -209,6 +209,5 @@ class TestRunTests:
         assert result == [{'_id': test_args['_id'], 'description': test_args['description'], 'level': test_args['levels']['server'], 'result': 'Not Implemented'}]
 
 
-
 if __name__ == '__main__':
     pytest.main([__file__, '--no-cov'])

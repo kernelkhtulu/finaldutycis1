@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import os
 from unittest.mock import mock_open, patch
 
 import pytest

@@ -2,7 +2,6 @@
 
 import argparse
 import logging
-from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest

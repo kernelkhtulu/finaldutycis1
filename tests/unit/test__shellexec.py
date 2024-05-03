@@ -8,22 +8,22 @@ from cis_audit import _shellexec
 def test_shellexec_stdout_pass():
     result = _shellexec('echo stdout')
     assert result.returncode == 0
-    assert result.stdout[0] == 'stdout'
-    assert result.stderr[0] == ''
+    assert result.stdout == ['stdout']
+    assert result.stderr == ['']
 
 
 def test_shellexec_sterr_pass():
     result = _shellexec('echo stderr | tee /dev/stderr 1>/dev/null')
     assert result.returncode == 0
-    assert result.stdout[0] == ''
-    assert result.stderr[0] == 'stderr'
+    assert result.stdout == ['']
+    assert result.stderr == ['stderr']
 
 
 def test_shellexec_sterr_error():
     result = _shellexec('error pytest')
     assert result.returncode == 127
-    assert result.stderr[0] in ['/bin/sh: error: command not found', '/bin/sh: 1: error: not found']
-    assert result.stdout[0] == ''
+    assert result.stderr == ['/bin/sh: error: command not found']
+    assert result.stdout == ['']
 
 
 if __name__ == '__main__':

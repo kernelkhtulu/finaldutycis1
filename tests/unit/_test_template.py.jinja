@@ -1,0 +1,35 @@
+#!/usr/bin/env python3
+
+from types import SimpleNamespace
+from unittest.mock import patch
+
+import pytest
+
+from cis_audit import {{ TEMPLATE }}
+
+def mock_{{ TEMPLATE }}_pass(cmd):
+    stdout = [""]
+    stderr = [""]
+    returncode = 0
+
+    return SimpleNamespace(stdout=stdout, stderr=stderr, returncode=returncode)
+
+def mock_{{ TEMPLATE }}_fail(cmd):
+    stdout = [""]
+    stderr = [""]
+    returncode = 0
+
+    return SimpleNamespace(stdout=stdout, stderr=stderr, returncode=returncode)
+
+@patch("cis_audit._shellexec", mock_{{ TEMPLATE }}_pass)
+def test_{{ TEMPLATE }}_pass():
+    state = {{ TEMPLATE }}()
+    assert state == 0
+
+@patch("cis_audit._shellexec", mock_{{ TEMPLATE }}_fail)
+def test_{{ TEMPLATE }}_fail():
+    state = {{ TEMPLATE }}()
+    assert state == 1
+
+if __name__ == '__main__':
+    pytest.main([__file__])

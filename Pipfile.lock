@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "a2c96daf0826a52eb90f78b39dfdc0721b43b854b752220e0e84d6187247483a"
+            "sha256": "ea004aba9c92ab41df12c92742ce6b7176be1dfa5b5556ad84aa4fcf9fd92c2f"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -256,6 +256,14 @@
             "markers": "python_full_version >= '3.6.8'",
             "version": "==3.1.2"
         },
+        "pypdf": {
+            "hashes": [
+                "sha256:01c3257ec908676efd60a4537e525b89d48e0852bc92b4e0aa4cc646feda17cc",
+                "sha256:16cac912a05200099cef3f347c4c7e0aaf0a6d027603b8f9a973c0ea500dff89"
+            ],
+            "index": "pypi",
+            "version": "==4.1.0"
+        },
         "pytest": {
             "hashes": [
                 "sha256:9ce3ff477af913ecf6321fe337b93a2c0dcf2a0a1439c43f5452112c1e4280db",
@@ -277,7 +285,7 @@
                 "sha256:05b6166bff487dc068d322585c7ea4ef78deed501cc124060e0f238e89a9231f",
                 "sha256:e3069e4be3ead9668e21cb9b074cd948f7b3113fd9c8bba083f48247aab8b11c"
             ],
-            "markers": "python_version >= '3.6'",
+            "markers": "python_full_version < '3.11.0a7'",
             "version": "==1.2.3"
         },
         "typed-ast": {

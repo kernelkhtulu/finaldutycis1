@@ -11,7 +11,7 @@ float_to_top = "true"
 ## https://docs.pytest.org/en/7.1.x/reference/customize.html#pyproject-toml
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "-q --cov=cis_audit --cov-fail-under=100 --cov-report term-missing"
+addopts = "-q --cov=cis_audit --cov-fail-under=100 --cov-report term-missing --show-contexts"
 testpaths = [
     "tests/unit/"
 ]

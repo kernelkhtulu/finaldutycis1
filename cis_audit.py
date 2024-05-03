@@ -17,16 +17,17 @@ import re  # https://docs.python.org/3/library/re.html
 import stat  # https://docs.python.org/3/library/stat.html
 import subprocess  # https://docs.python.org/3/library/subprocess.html
 import sys  # https://docs.python.org/3/library/sys.html
-from argparse import ArgumentParser, RawTextHelpFormatter  # https://docs.python.org/3/library/argparse.html#argparse
+from argparse import ArgumentParser, Namespace, RawTextHelpFormatter  # https://docs.python.org/3/library/argparse.html
 from datetime import datetime, timezone  # https://docs.python.org/3/library/datetime.html#datetime.datetime
+from functools import lru_cache  # https://docs.python.org/3/library/functools.html
 from grp import getgrgid  # https://docs.python.org/3/library/grp.html#grp.getgrgid
 from pwd import getpwuid  # https://docs.python.org/3/library/pwd.html#pwd.getpwuid
-from types import SimpleNamespace  # https://docs.python.org/3/library/types.html#types.SimpleNamespace
-from typing import Optional  # https://docs.python.org/3/library/typing.html
+from types import SimpleNamespace  # https://docs.python.org/3/library/types.html
+from typing import Optional, Union  # https://docs.python.org/3/library/typing.html
 
 __version__ = '0.20.0a4'
 
-CONFIG = None
+CONFIG = Namespace()
 
 
 logging.basicConfig(
@@ -37,6 +38,7 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 
+## TODO: Review _get_homedirs for v4.0.0
 def _get_homedirs():
     cmd = R"awk -F: '($1!~/(halt|sync|shutdown|nfsnobody)/ && $7!~/^(\/usr)?\/sbin\/nologin(\/)?$/ && $7!~/(\/usr)?\/bin\/false(\/)?$/) { print $1,$3,$6 }' /etc/passwd"
     r = _shellexec(cmd)
@@ -48,10 +50,12 @@ def _get_homedirs():
             yield user, int(uid), homedir
 
 
+## TODO: Review _get_utcnow for v4.0.0
 def _get_utcnow() -> datetime:
     return datetime.utcnow()
 
 
+## TODO: Review _is_test_included for v4.0.0
 def _is_test_included(test_id, test_level) -> bool:
     """Check whether a test_id should be tested or not
 
@@ -142,6 +146,7 @@ def _is_test_included(test_id, test_level) -> bool:
     return is_test_included
 
 
+## TODO: Review _parse_arguments for v4.0.0
 def _parse_arguments(argv=sys.argv):
     description = "This script runs tests on the system to check for compliance against the CIS Benchmarks. No changes are made to system files by this script."
     epilog = f"""
@@ -174,7 +179,7 @@ Examples:
     parser.add_argument('--level', action='store', choices=level_choices, default=0, type=int, help='Run tests for the specified level only')
     parser.add_argument('--include', action='store', nargs='+', dest='includes', help='Space delimited list of tests to include')
     parser.add_argument('--exclude', action='store', nargs='+', dest='excludes', help='Space delimited list of tests to exclude')
-    parser.add_argument('-l', '--log-level', action='store', choices=log_level_choices, default='INFO', help='Set log output level')
+    parser.add_argument('-l', '--log-level', action='store', choices=log_level_choices, default='WARNING', help='Set log output level')
     parser.add_argument('--debug', action='store_const', const='DEBUG', dest='log_level', help='Run script with debug output turned on. Equivalent to --log-level DEBUG')
     parser.add_argument('--nice', action='store_true', default=True, help='Lower the CPU priority for test execution. This is the default behaviour.')
     parser.add_argument('--no-nice', action='store_false', dest='nice', help='Do not lower CPU priority for test execution. This may make the tests complete faster but at the cost of putting a higher load on the server. Setting this overrides the --nice option.')
@@ -245,8 +250,9 @@ Examples:
     return args
 
 
+## TODO: Review _shellexec for v4.0.0
 def _shellexec(command: str):
-    """Execute shell command on the system. Supports piped commands
+    """Execute shell command on the system. Supports piped commands.
 
     Parameters
     ----------
@@ -256,27 +262,34 @@ def _shellexec(command: str):
     Returns
     -------
     Namespace:
-
+        stdout :
+            Standard output produced by the command
+        stderr :
+            Standard error output produced by the command
+        returncode :
+            The final status of the command
+            0 == Success
     """
 
     result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-    output = result.stdout.decode('UTF-8').split('\n')
-    error = result.stderr.decode('UTF-8').split('\n')
+    stdout = result.stdout.decode('UTF-8').split('\n')
+    stderr = result.stderr.decode('UTF-8').split('\n')
     returncode = result.returncode
 
-    if len(output) > 1:
-        output.pop(-1)
+    if len(stdout) > 1:
+        stdout.pop(-1)
 
-    if len(error) > 1:
-        error.pop(-1)
+    if len(stderr) > 1:
+        stderr.pop(-1)
 
-    data = SimpleNamespace(stdout=output, stderr=error, returncode=returncode)
+    data = SimpleNamespace(stdout=stdout, stderr=stderr, returncode=returncode)
 
-    log.debug(f"'{command}', {data}")
+    log.debug("'%s', %s", command, data)
 
     return data
 
 
+## TODO: Review audit_access_to_su_command_is_restricted for v4.0.0
 def audit_access_to_su_command_is_restricted() -> int:
     state = 0
     cmd = R"grep -Pi '^\h*auth\h+(?:required|requisite)\h+pam_wheel\.so\h+(?:[^#\n\r]+\h+)?((?!\2)(use_uid\b|group=\H+\b))\h+(?:[^#\n\r]+\h+)?((?!\1)(use_uid\b|group=\H+\b))(\h+.*)?$' /etc/pam.d/su"
@@ -301,6 +314,7 @@ def audit_access_to_su_command_is_restricted() -> int:
     return state
 
 
+## TODO: Review audit_at_is_restricted_to_authorized_users for v4.0.0
 def audit_at_is_restricted_to_authorized_users() -> int:
     state = 0
 
@@ -313,6 +327,7 @@ def audit_at_is_restricted_to_authorized_users() -> int:
     return state
 
 
+## TODO: Review audit_audit_config_is_immutable for v4.0.0
 def audit_audit_config_is_immutable() -> int:
     cmd = R'grep -h "^\s*[^#]" /etc/audit/rules.d/*.rules | tail -1'
     r = _shellexec(cmd)
@@ -325,6 +340,7 @@ def audit_audit_config_is_immutable() -> int:
     return state
 
 
+## TODO: Review audit_audit_log_size_is_configured for v4.0.0
 def audit_audit_log_size_is_configured() -> int:
     cmd = R"grep -P '^max_log_file\s*=\s*[0-9]+' /etc/audit/auditd.conf"
     r = _shellexec(cmd)
@@ -337,6 +353,7 @@ def audit_audit_log_size_is_configured() -> int:
     return state
 
 
+## TODO: Review audit_audit_logs_not_automatically_deleted for v4.0.0
 def audit_audit_logs_not_automatically_deleted() -> int:
     cmd = R"grep '^max_log_file_action\s*=\s*keep_logs' /etc/audit/auditd.conf"
     r = _shellexec(cmd)
@@ -349,6 +366,7 @@ def audit_audit_logs_not_automatically_deleted() -> int:
     return state
 
 
+## TODO: Review audit_auditing_for_processes_prior_to_start_is_enabled for v4.0.0
 def audit_auditing_for_processes_prior_to_start_is_enabled() -> int:
     r"""
     #!/bin/bash
@@ -442,6 +460,28 @@ def audit_chrony_is_configured() -> int:
     return state
 
 
+def audit_core_dump_backtraces_are_disabled() -> int:
+    state = 0
+    cmd = R"grep -Pi -- '^\h*ProcessSizeMax\b' /etc/systemd/coredump.conf"
+    r = _shellexec(cmd)
+
+    if r.stdout[0] != "ProcessSizeMax=0":
+        state += 1
+
+    return state
+
+
+def audit_core_dump_storage_is_disabled() -> int:
+    state = 0
+    cmd = R"grep -Pi -- '^\h*Storage\b' /etc/systemd/coredump.conf"
+    r = _shellexec(cmd)
+
+    if r.stdout[0] != "Storage=none":
+        state += 1
+
+    return state
+
+
 def audit_core_dumps_restricted() -> int:
     state = 0
 
@@ -463,6 +503,7 @@ def audit_core_dumps_restricted() -> int:
     return state
 
 
+## TODO: Review audit_cron_is_restricted_to_authorized_users for v4.0.0
 def audit_cron_is_restricted_to_authorized_users() -> int:
     state = 0
 
@@ -478,6 +519,7 @@ def audit_cron_is_restricted_to_authorized_users() -> int:
     return state
 
 
+## TODO: Review audit_default_group_for_root for v4.0.0
 def audit_default_group_for_root() -> int:
     cmd = 'grep "^root:" /etc/passwd | cut -f4 -d:'
     r = _shellexec(cmd)
@@ -490,6 +532,7 @@ def audit_default_group_for_root() -> int:
     return state
 
 
+## TODO: Review audit_duplicate_gids for v4.0.0
 def audit_duplicate_gids() -> int:
     state = 0
     cmd = R'cut -d: -f3 /etc/group | sort | uniq -d'
@@ -501,6 +544,7 @@ def audit_duplicate_gids() -> int:
     return state
 
 
+## TODO: Review audit_duplicate_group_names for v4.0.0
 def audit_duplicate_group_names() -> int:
     state = 0
     cmd = R'cut -d: -f1 /etc/group | sort | uniq -d'
@@ -512,6 +556,7 @@ def audit_duplicate_group_names() -> int:
     return state
 
 
+## TODO: Review audit_duplicate_uids for v4.0.0
 def audit_duplicate_uids() -> int:
     state = 0
     cmd = R'cut -d: -f3 /etc/passwd | sort | uniq -d'
@@ -523,6 +568,7 @@ def audit_duplicate_uids() -> int:
     return state
 
 
+## TODO: Review audit_duplicate_user_names for v4.0.0
 def audit_duplicate_user_names() -> int:
     state = 0
     cmd = R'cut -d: -f1 /etc/passwd | sort | uniq -d'
@@ -534,6 +580,7 @@ def audit_duplicate_user_names() -> int:
     return state
 
 
+## TODO: Review audit_etc_passwd_accounts_use_shadowed_passwords for v4.0.0
 def audit_etc_passwd_accounts_use_shadowed_passwords() -> int:
     """audit_etc_passwd_accounts_use_shadowed_passwords _summary_
 
@@ -557,6 +604,7 @@ def audit_etc_passwd_accounts_use_shadowed_passwords() -> int:
     return state
 
 
+## TODO: Review audit_etc_passwd_gids_exist_in_etc_group for v4.0.0
 def audit_etc_passwd_gids_exist_in_etc_group() -> int:
     gids_from_etc_group = _shellexec("awk -F: '{print $3}' /etc/group | sort -un").stdout
     gids_from_etc_passwd = _shellexec("awk -F: '{print $4}' /etc/passwd | sort -un").stdout
@@ -570,6 +618,7 @@ def audit_etc_passwd_gids_exist_in_etc_group() -> int:
     return state
 
 
+## TODO: Review audit_etc_shadow_password_fields_are_not_empty for v4.0.0
 def audit_etc_shadow_password_fields_are_not_empty() -> int:
     state = 0
 
@@ -582,6 +631,7 @@ def audit_etc_shadow_password_fields_are_not_empty() -> int:
     return state
 
 
+## TODO: Review audit_events_for_changes_to_sysadmin_scope_are_collected for v4.0.0
 def audit_events_for_changes_to_sysadmin_scope_are_collected() -> int:
     state = 0
     cmd1 = R"grep -h scope /etc/audit/rules.d/*.rules"
@@ -604,6 +654,7 @@ def audit_events_for_changes_to_sysadmin_scope_are_collected() -> int:
     return state
 
 
+## TODO: Review audit_events_for_discretionary_access_control_changes_are_collected for v4.0.0
 def audit_events_for_discretionary_access_control_changes_are_collected() -> int:
     state = 0
     cmd1 = R"grep -h perm_mod /etc/audit/rules.d/*.rules"
@@ -639,6 +690,7 @@ def audit_events_for_discretionary_access_control_changes_are_collected() -> int
     return state
 
 
+## TODO: Review audit_events_for_file_deletion_by_users_are_collected for v4.0.0
 def audit_events_for_file_deletion_by_users_are_collected() -> int:
     state = 0
     cmd1 = R"grep -h delete /etc/audit/rules.d/*.rules"
@@ -666,6 +718,7 @@ def audit_events_for_file_deletion_by_users_are_collected() -> int:
     return state
 
 
+## TODO: Review audit_events_for_kernel_module_loading_and_unloading_are_collected for v4.0.0
 def audit_events_for_kernel_module_loading_and_unloading_are_collected() -> int:
     state = 0
     cmd1 = R"grep -h modules /etc/audit/rules.d/*.rules"
@@ -697,6 +750,7 @@ def audit_events_for_kernel_module_loading_and_unloading_are_collected() -> int:
     return state
 
 
+## TODO: Review audit_events_for_login_and_logout_are_collected for v4.0.0
 def audit_events_for_login_and_logout_are_collected() -> int:
     state = 0
     cmd1 = R"grep -h logins /etc/audit/rules.d/*.rules"
@@ -719,6 +773,7 @@ def audit_events_for_login_and_logout_are_collected() -> int:
     return state
 
 
+## TODO: Review audit_events_for_session_initiation_are_collected for v4.0.0
 def audit_events_for_session_initiation_are_collected() -> int:
     state = 0
     cmd1 = R"grep -h '[buw]tmp' /etc/audit/rules.d/*.rules"
@@ -742,6 +797,7 @@ def audit_events_for_session_initiation_are_collected() -> int:
     return state
 
 
+## TODO: Review audit_events_for_successful_file_system_mounts_are_collected for v4.0.0
 def audit_events_for_successful_file_system_mounts_are_collected() -> int:
     state = 0
     cmd1 = R"grep -h mounts /etc/audit/rules.d/*.rules"
@@ -769,6 +825,7 @@ def audit_events_for_successful_file_system_mounts_are_collected() -> int:
     return state
 
 
+## TODO: Review audit_events_for_system_administrator_commands_are_collected for v4.0.0
 def audit_events_for_system_administrator_commands_are_collected() -> int:
     state = 0
     cmd1 = R"grep -h actions /etc/audit/rules.d/*.rules"
@@ -795,6 +852,7 @@ def audit_events_for_system_administrator_commands_are_collected() -> int:
     return state
 
 
+## TODO: Review audit_events_for_unsuccessful_file_access_attempts_are_collected for v4.0.0
 def audit_events_for_unsuccessful_file_access_attempts_are_collected() -> int:
     state = 0
     cmd1 = R"grep -h access /etc/audit/rules.d/*.rules"
@@ -825,6 +883,7 @@ def audit_events_for_unsuccessful_file_access_attempts_are_collected() -> int:
     return state
 
 
+## TODO: Review audit_events_that_modify_datetime_are_collected for v4.0.0
 def audit_events_that_modify_datetime_are_collected() -> int:
     state = 0
     cmd1 = R"grep -h time-change /etc/audit/rules.d/*.rules"
@@ -858,6 +917,7 @@ def audit_events_that_modify_datetime_are_collected() -> int:
     return state
 
 
+## TODO: Review audit_events_that_modify_mandatory_access_controls_are_collected for v4.0.0
 def audit_events_that_modify_mandatory_access_controls_are_collected() -> int:
     state = 0
     cmd1 = R"grep -h MAC-policy /etc/audit/rules.d/*.rules"
@@ -880,6 +940,7 @@ def audit_events_that_modify_mandatory_access_controls_are_collected() -> int:
     return state
 
 
+## TODO: Review audit_events_that_modify_network_environment_are_collected for v4.0.0
 def audit_events_that_modify_network_environment_are_collected() -> int:
     state = 0
     cmd1 = R"grep -h system-locale /etc/audit/rules.d/*.rules"
@@ -915,6 +976,7 @@ def audit_events_that_modify_network_environment_are_collected() -> int:
     return state
 
 
+## TODO: Review audit_events_that_modify_usergroup_info_are_collected for v4.0.0
 def audit_events_that_modify_usergroup_info_are_collected() -> int:
     state = 0
     cmd1 = R"grep -h identity /etc/audit/rules.d/*.rules"
@@ -948,6 +1010,7 @@ def audit_events_that_modify_usergroup_info_are_collected() -> int:
     return state
 
 
+## TODO: Review audit_file_permissions for v4.0.0
 def audit_file_permissions(file: str, expected_mode: str, expected_user: Optional[str] = None, expected_group: Optional[str] = None) -> int:
     """Check that a file's ownership matches the expected_user and expected_group, and that the file's permissions match or are more restrictive than the expected_mode.
 
@@ -1049,6 +1112,7 @@ def audit_file_permissions(file: str, expected_mode: str, expected_user: Optiona
     return state
 
 
+## TODO: Review audit_filesystem_integrity_regularly_checked for v4.0.0
 def audit_filesystem_integrity_regularly_checked() -> int:
     state = 1
 
@@ -1079,6 +1143,7 @@ def audit_filesystem_integrity_regularly_checked() -> int:
     return state
 
 
+## TODO: Review audit_firewalld_default_zone_is_set for v4.0.0
 def audit_firewalld_default_zone_is_set() -> int:
     cmd = 'firewall-cmd --get-default-zone'
     r = _shellexec(cmd)
@@ -1091,6 +1156,29 @@ def audit_firewalld_default_zone_is_set() -> int:
     return state
 
 
+def audit_gdm_automount_is_disabled() -> int:
+    ## References:
+    ## https://help.gnome.org/admin/system-admin-guide/stable/desktop-lockscreen.html.en
+    ## https://access.redhat.com/solutions/20107
+
+    state = 0
+
+    if audit_package_is_installed(package="gdm") == 0:
+        ## Check if automount equals "false"
+        if audit_gsettings_option(option="org.gnome.desktop.media-handling automount", comparisons={'eq': "false"}) > 0:
+            state += 1
+
+        ## Check if automount-open equals "false"
+        if audit_gsettings_option(option="org.gnome.desktop.media-handling automount-open", comparisons={'le': "false"}) > 0:
+            state += 2
+
+    else:
+        state = -2
+        log.info("Skipping because GDM is not installed")
+
+    return state
+
+## TODO: Review audit_gdm_last_user_logged_in_disabled for v4.0.0
 def audit_gdm_last_user_logged_in_disabled() -> int:
     state = 0
 
@@ -1126,48 +1214,135 @@ def audit_gdm_last_user_logged_in_disabled() -> int:
 
 
 def audit_gdm_login_banner_configured() -> int:
+    ## References:
+    ## https://help.gnome.org/admin/system-admin-guide/stable/login-banner.html.en
+    ## https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html-single/desktop_migration_and_administration_guide/index#displaying-text-banner
+
     state = 0
 
     if audit_package_is_installed(package="gdm") == 0:
-        ## Test contents of /etc/dconf/profile/gdm if it exists
-        file = "/etc/dconf/profile/gdm"
-        if os.path.exists(file):
-            with open(file) as f:
-                contents = f.read()
-                if "user-db:user" not in contents:
-                    state += 2
-                if "system-db:gdm" not in contents:
-                    state += 4
-                if "file-db:/usr/share/gdm/greeter-dconf-defaults" not in contents:
-                    state += 8
-        else:
+        ## Check if banner-message-enable is true
+        if audit_gsettings_option(option="org.gnome.login-screen.banner-message-enable", comparisons={'eq': "true"}) > 0:
             state += 1
 
-        ## Test contents of /etc/dconf/db/gdm.d/01-banner-message, if it exists
-        file = "/etc/dconf/db/gdm.d/01-banner-message"
-        if os.path.exists(file):
-            with open(file) as f:
-                contents = f.read()
-                if "[org/gnome/login-screen]\nbanner-message-enable=true\nbanner-message-text=" not in contents:
-                    state += 32
-        else:
-            state += 16
+        ## Check if banner-message-text is set
+        if audit_gsettings_option(option="org.gnome.login-screen.banner-message-text", comparisons={'ne': ""}) > 0:
+            state += 2
+
     else:
         state = -2
+        log.info("Skipping because GDM is not installed")
 
     return state
 
 
-def audit_gpgcheck_is_activated() -> int:
+def audit_gdm_screen_locks() -> int:
+    ## References:
+    ## https://help.gnome.org/admin/system-admin-guide/stable/desktop-lockscreen.html.en
+    ## https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html-single/desktop_migration_and_administration_guide/index#locking-screen-when-user-is-idle
+
     state = 0
 
-    cmd = R'grep ^\s*gpgcheck /etc/yum.conf'
+    if audit_package_is_installed(package="gdm") == 0:
+        ## Check if idle-delay is between 1 and 900
+        if audit_gsettings_option(option="org.gnome.desktop.session idle-delay", comparisons={'gt': 0, 'le': 900}) > 0:
+            state += 1
+
+        ## Check if banner-message-text is set
+        if audit_gsettings_option(option="org.gnome.desktop.screensaver lock-delay", comparisons={'le': 5}) > 0:
+            state += 2
+
+    else:
+        state = -2
+        log.info("Skipping because GDM is not installed")
+
+    return state
+
+
+def audit_gsettings_option(option: str, comparisons: dict) -> int:
+    state = 0
+
+    if audit_package_is_installed("glib2") != 0:
+        log.error("The glib2 package is required for this test but it is not installed")
+        return -2
+
+    else:
+        cmd = fR"gsettings get {option}"
+        r = _shellexec(cmd)
+
+        if r.returncode == 0:
+            actual_value = r.stdout[0].split(maxsplit=-1)[-1]
+
+            for i, (comparator, expected_value) in enumerate(comparisons.items()):
+                if comparator == "eq":
+                    if not str(actual_value) == str(expected_value):
+                        log.info("GSetting %s value %s is not equal to %s", option, actual_value, expected_value)
+                        state += 2**i
+
+                elif comparator == "ne":
+                    if not str(actual_value) != str(expected_value):
+                        log.info("GSetting %s value %s is not not-equal to %s", option, actual_value, expected_value)
+                        state += 2**i
+
+                elif comparator == "ge":
+                    if not int(actual_value) >= int(expected_value):
+                        log.info("GSetting %s value %s is not greater than or equal to %s", option, actual_value, expected_value)
+                        state += 2**i
+
+                elif comparator == "gt":
+                    if not int(actual_value) > int(expected_value):
+                        log.info("GSetting %s value %s is not greater than %s", option, actual_value, expected_value)
+                        state += 2**i
+
+                elif comparator == "le":
+                    if not int(actual_value) <= int(expected_value):
+                        log.info("GSetting %s value %s is not less than or equal to %s", option, actual_value, expected_value)
+                        state += 2**i
+
+                elif comparator == "lt":
+                    if not int(actual_value) < int(expected_value):
+                        log.info("GSetting %s value %s is not less than %s", option, actual_value, expected_value)
+                        state += 2**i
+
+        else:
+            state = 1
+
+    return state
+
+
+def audit_gsettings_options_are_protected(options: "list[str]") -> int:
+    state = 0
+
+    if audit_package_is_installed("glib2") != 0:
+        log.error("The glib2 package is required for this test but it is not installed")
+        return -2
+
+    else:
+        for i, option in enumerate(options):
+            cmd = fR"gsettings writable {option}"
+            r = _shellexec(cmd)
+
+            if r.stdout[0] == "true":
+                pass
+            elif r.stdout[0] == "false":
+                log.info("The gsetting option '%s' is not protected", option)
+                state += 2**i
+            else:
+                log.error("Failed to check gsetting option '%s'", option)
+                return -1
+
+    return state
+
+
+def audit_gpgcheck_is_globally_activated() -> int:
+    state = 0
+
+    cmd = R"grep -P -- '^\h*gpgcheck\b' /etc/yum.conf"
     r = _shellexec(cmd)
     if r.stdout[0] != 'gpgcheck=1':
         state += 1
 
-    cmd = R"grep -P '^\h*gpgcheck=[^1\n\r]+\b(\h+.*)?$' /etc/yum.repos.d/*.repo"
-    # cmd = R"awk -v 'RS=[' -F '\n' '/\n\s*name\s*=\s*.*$/ && ! /\n\s*enabled\s*=\s*0(\W.*)?$/ && ! /\n\s*gpgcheck\s*=\s*1(\W.*)?$/ { t=substr($1, 1, index($1, \"]\")-1); print t, \"does not have gpgcheck enabled.\" }' /etc/yum.repos.d/*.repo"
+    cmd = R"grep -Prs -- '^\h*gpgcheck\h*=\h*(0|[2-9]|[1-9][0-9]+|[a-zA-Z_]+)\b' /etc/yum.repos.d/*.repo"
     r = _shellexec(cmd)
 
     if r.stdout[0] != '':
@@ -1176,6 +1351,7 @@ def audit_gpgcheck_is_activated() -> int:
     return state
 
 
+## TODO: Review audit_homedirs_exist for v4.0.0
 def audit_homedirs_exist() -> int:
     state = 0
 
@@ -1188,6 +1364,7 @@ def audit_homedirs_exist() -> int:
     return state
 
 
+## TODO: Review audit_homedirs_ownership for v4.0.0
 def audit_homedirs_ownership() -> int:
     state = 0
 
@@ -1201,6 +1378,7 @@ def audit_homedirs_ownership() -> int:
     return state
 
 
+## TODO: Review audit_homedirs_permissions for v4.0.0
 def audit_homedirs_permissions() -> int:
     state = 0
 
@@ -1212,6 +1390,7 @@ def audit_homedirs_permissions() -> int:
     return state
 
 
+## TODO: Review audit_iptables_default_deny_policy for v4.0.0
 def audit_iptables_default_deny_policy(ip_version: str) -> int:
     state = 0
 
@@ -1240,6 +1419,7 @@ def audit_iptables_default_deny_policy(ip_version: str) -> int:
     return state
 
 
+## TODO: Review audit_iptables_is_flushed for v4.0.0
 def audit_iptables_is_flushed() -> int:
     state = 0
 
@@ -1256,6 +1436,7 @@ def audit_iptables_is_flushed() -> int:
     return state
 
 
+## TODO: Review audit_iptables_loopback_is_configured for v4.0.0
 def audit_iptables_loopback_is_configured(ip_version: str) -> int:
     state = 0
 
@@ -1288,6 +1469,7 @@ def audit_iptables_loopback_is_configured(ip_version: str) -> int:
     return state
 
 
+## TODO: Review audit_iptables_outbound_and_established_connections for v4.0.0
 def audit_iptables_outbound_and_established_connections(ip_version: str) -> int:
     state = 0
 
@@ -1321,6 +1503,7 @@ def audit_iptables_outbound_and_established_connections(ip_version: str) -> int:
     return state
 
 
+## TODO: Review audit_iptables_rules_are_saved for v4.0.0
 def audit_iptables_rules_are_saved(ip_version: str) -> int:
     if ip_version == 'ipv4':
         # cmd = R"diff -qs -y <(iptables-save | grep -v '^#' | sed 's/\[[0-9]*:[0-9]*\]//' | sort) <(grep -v '^#' /etc/sysconfig/iptables | sed 's/\[[0-9]*:[0-9]*\]//' | sort)"
@@ -1346,6 +1529,7 @@ def audit_iptables_rules_are_saved(ip_version: str) -> int:
     return state
 
 
+## TODO: Review audit_journald_configured_to_compress_large_logs for v4.0.0
 def audit_journald_configured_to_compress_large_logs() -> int:
     cmd = R'grep -E ^\s*Compress= /etc/systemd/journald.conf'
     r = _shellexec(cmd)
@@ -1358,6 +1542,7 @@ def audit_journald_configured_to_compress_large_logs() -> int:
     return state
 
 
+## TODO: Review audit_journald_configured_to_send_logs_to_rsyslog for v4.0.0
 def audit_journald_configured_to_send_logs_to_rsyslog() -> int:
     cmd = R'grep -E ^\s*ForwardToSyslog= /etc/systemd/journald.conf'
     r = _shellexec(cmd)
@@ -1370,6 +1555,7 @@ def audit_journald_configured_to_send_logs_to_rsyslog() -> int:
     return state
 
 
+## TODO: Review audit_journald_configured_to_write_logfiles_to_disk for v4.0.0
 def audit_journald_configured_to_write_logfiles_to_disk() -> int:
     cmd = R'grep -E ^\s*Storage= /etc/systemd/journald.conf'
     r = _shellexec(cmd)
@@ -1403,6 +1589,7 @@ def audit_kernel_module_is_disabled(module: str) -> int:
     return state
 
 
+## TODO: Review audit_mta_is_localhost_only for v4.0.0
 def audit_mta_is_localhost_only() -> int:
     state = 0
 
@@ -1414,6 +1601,19 @@ def audit_mta_is_localhost_only() -> int:
     return state
 
 
+def audit_login_banner_content_is_appropriate(file: str) -> int:
+    state = 0
+
+    cmd = fR"""grep -E -i "(\\\v|\\\r|\\\m|\\\s|$(grep '^ID=' /etc/os-release | cut -d= -f2 | sed -e 's/"//g'))" {file}"""
+    r = _shellexec(cmd)
+
+    if r.stdout != [""]:
+        state += 1
+
+    return state
+
+
+## TODO: Review audit_nftables_base_chains_exist for v4.0.0
 def audit_nftables_base_chains_exist() -> int:
     state = 0
 
@@ -1437,6 +1637,7 @@ def audit_nftables_base_chains_exist() -> int:
     return state
 
 
+## TODO: Review audit_nftables_outbound_and_established_connections for v4.0.0
 def audit_nftables_outbound_and_established_connections() -> int:
     state = 0
 
@@ -1469,6 +1670,7 @@ def audit_nftables_outbound_and_established_connections() -> int:
     return state
 
 
+## TODO: Review audit_nftables_default_deny_policy for v4.0.0
 def audit_nftables_default_deny_policy() -> int:
     state = 0
 
@@ -1496,6 +1698,7 @@ def audit_nftables_default_deny_policy() -> int:
     return state
 
 
+## TODO: Review audit_nftables_loopback_is_configured for v4.0.0
 def audit_nftables_loopback_is_configured() -> int:
     state = 0
 
@@ -1527,6 +1730,7 @@ def audit_nftables_loopback_is_configured() -> int:
     return state
 
 
+## TODO: Review audit_nftables_table_exists for v4.0.0
 def audit_nftables_table_exists() -> int:
     state = 0
 
@@ -1550,6 +1754,7 @@ def audit_no_unconfined_services() -> int:
     return state
 
 
+## TODO: Review audit_ntp_is_configured for v4.0.0
 def audit_ntp_is_configured() -> int:
     state = 0
 
@@ -1589,6 +1794,7 @@ def audit_ntp_is_configured() -> int:
     return state
 
 
+## TODO: Review audit_nxdx_support_enabled for v4.0.0
 def audit_nxdx_support_enabled() -> int:
     state = 0
     cmd = R'dmesg | grep "protection: active"'
@@ -1600,6 +1806,7 @@ def audit_nxdx_support_enabled() -> int:
     return state
 
 
+## TODO: Review audit_only_one_package_is_installed for v4.0.0
 def audit_only_one_package_is_installed(packages: str) -> int:
     ### Similar to audit_package_is_installed but requires one of many (xor) package is installed
     cmd = f'rpm -q {packages} | grep -v "not installed"'
@@ -1631,6 +1838,7 @@ def audit_package_is_installed(package: str) -> int:
     return state
 
 
+## TODO: Review audit_package_not_installed for v4.0.0
 def audit_package_not_installed(package: str) -> int:
     cmd = f'rpm -q {package}'
     r = _shellexec(cmd)
@@ -1645,6 +1853,7 @@ def audit_package_not_installed(package: str) -> int:
     return state
 
 
+## TODO: Review audit_package_not_installed_or_service_is_masked for v4.0.0
 def audit_package_not_installed_or_service_is_masked(package: str, service: str) -> int:
     state = 0
 
@@ -1663,7 +1872,7 @@ def audit_package_not_installed_or_service_is_masked(package: str, service: str)
 
 def audit_partition_is_separate(partition: str) -> int:
     state = 0
-    cmd = Rf'mount | grep -E "\s{partition}\s"'
+    cmd = f"findmnt -nk {partition}"
     r = _shellexec(cmd)
     if partition not in r.stdout[0]:
         state += 1
@@ -1673,7 +1882,7 @@ def audit_partition_is_separate(partition: str) -> int:
 
 def audit_partition_option_is_set(partition: str, option: str) -> int:
     state = 1
-    cmd = Rf'mount | grep -E "\s{partition}\s" | grep {option}'
+    cmd = f"findmnt -nk {partition} | grep {option}"
     r = _shellexec(cmd)
 
     if partition in r.stdout[0] and option in r.stdout[0]:
@@ -1682,6 +1891,7 @@ def audit_partition_option_is_set(partition: str, option: str) -> int:
     return state
 
 
+## TODO: Review audit_password_change_minimum_delay for v4.0.0
 def audit_password_change_minimum_delay(expected_min_days: int = 1) -> int:
     state = 0
 
@@ -1704,6 +1914,7 @@ def audit_password_change_minimum_delay(expected_min_days: int = 1) -> int:
     return state
 
 
+## TODO: Review audit_password_expiration_max_days_is_configured for v4.0.0
 def audit_password_expiration_max_days_is_configured(expected_max_days: int = 365) -> int:
     state = 0
 
@@ -1726,6 +1937,7 @@ def audit_password_expiration_max_days_is_configured(expected_max_days: int = 36
     return state
 
 
+## TODO: Review audit_password_expiration_warning_is_configured for v4.0.0
 def audit_password_expiration_warning_is_configured(expected_warn_days: int = 7) -> int:
     state = 0
 
@@ -1748,6 +1960,7 @@ def audit_password_expiration_warning_is_configured(expected_warn_days: int = 7)
     return state
 
 
+## TODO: Review audit_password_hashing_algorithm for v4.0.0
 def audit_password_hashing_algorithm() -> int:
     state = 0
     cmd = R"grep -P '^\h*password\h+(sufficient|requisite|required)\h+pam_unix\.so\h+([^#\n\r]+)?sha512(\h+.*)?$' /etc/pam.d/system-auth /etc/pam.d/password-auth"
@@ -1760,6 +1973,7 @@ def audit_password_hashing_algorithm() -> int:
     return state
 
 
+## TODO: Review audit_password_inactive_lock_is_configured for v4.0.0
 def audit_password_inactive_lock_is_configured(expected_inactive_days: int = 30) -> int:
     state = 0
 
@@ -1785,6 +1999,7 @@ def audit_password_inactive_lock_is_configured(expected_inactive_days: int = 30)
     return state
 
 
+## TODO: Review audit_password_reuse_is_limited for v4.0.0
 def audit_password_reuse_is_limited() -> int:
     state = 0
     cmd1 = R"grep -P '^\s*password\s+(requisite|required)\s+pam_pwhistory\.so\s+([^#]+\s+)*remember=([5-9]|[1-9][0-9]+)\b' /etc/pam.d/system-auth /etc/pam.d/password-auth"
@@ -1799,6 +2014,25 @@ def audit_password_reuse_is_limited() -> int:
     return state
 
 
+def audit_permissions_on_bootloader_files() -> int:
+    state = 0
+
+    cmd1 = R'find /boot/efi/EFI/ -type f -perm /g+rwx,o+rwx -exec ls -l {} \;'
+    cmd2 = R'find /boot/grub2/ -type f -perm /g+rwx,o+rwx -exec ls -l {} \;'
+
+    r1 = _shellexec(cmd1)
+    r2 = _shellexec(cmd2)
+
+    if r1.stdout[0] != '':
+        state += 1
+
+    if r2.stdout[0] != '':
+        state += 2
+
+    return state
+
+
+## TODO: Review audit_permissions_on_log_files for v4.0.0
 def audit_permissions_on_log_files() -> int:
     cmd = R'find /var/log -type f -perm /g+wx,o+rwx -exec ls -l {} \;'
     r = _shellexec(cmd)
@@ -1811,6 +2045,7 @@ def audit_permissions_on_log_files() -> int:
     return state
 
 
+## TODO: Review audit_permissions_on_private_host_key_files for v4.0.0
 def audit_permissions_on_private_host_key_files() -> int:
     state = 0
     counter = 0
@@ -1835,6 +2070,7 @@ def audit_permissions_on_private_host_key_files() -> int:
     return state
 
 
+## TODO: Review audit_permissions_on_public_host_key_files for v4.0.0
 def audit_permissions_on_public_host_key_files() -> int:
     state = 0
     counter = 0
@@ -1859,6 +2095,7 @@ def audit_permissions_on_public_host_key_files() -> int:
     return state
 
 
+## TODO: Review audit_removable_partition_option_is_set for v4.0.0
 def audit_removable_partition_option_is_set(option: str) -> int:
     state = 0
     removable_mountpoints = _shellexec("lsblk -o RM,MOUNTPOINT | awk '/1/ {print $2}'").stdout
@@ -1874,6 +2111,18 @@ def audit_removable_partition_option_is_set(option: str) -> int:
     return state
 
 
+def audit_repo_gpgcheck_is_globally_activated() -> int:
+    state = 0
+
+    cmd = R"grep -P -- '^\h*repo_gpgcheck\b' /etc/yum.conf"
+    r = _shellexec(cmd)
+    if r.stdout[0] != "repo_gpgcheck=1":
+        state += 1
+
+    return state
+
+
+## TODO: Review audit_root_is_only_uid_ for v4.0.0
 def audit_root_is_only_uid_0_account() -> int:
     state = 0
     cmd = R"awk -F: '($3 == 0) { print $1 }' /etc/passwd"
@@ -1885,6 +2134,7 @@ def audit_root_is_only_uid_0_account() -> int:
     return state
 
 
+## TODO: Review audit_rsyslog_default_file_permission_is_configured for v4.0.0
 def audit_rsyslog_default_file_permission_is_configured() -> int:
     cmd = R'grep -h ^\$FileCreateMode /etc/rsyslog.conf /etc/rsyslog.d/*.conf'
     r = _shellexec(cmd)
@@ -1897,6 +2147,7 @@ def audit_rsyslog_default_file_permission_is_configured() -> int:
     return state
 
 
+## TODO: Review audit_rsyslog_sends_logs_to_a_remote_log_host for v4.0.0
 def audit_rsyslog_sends_logs_to_a_remote_log_host() -> int:
     cmd1 = R'grep -Eh "^\s*([^#]+\s+)?action\(([^#]+\s+)?\btarget=\"?[^#\"]+\"?\b" /etc/rsyslog.conf /etc/rsyslog.d/*.conf'  # https://regex101.com/r/Ud69Ey/4
     cmd2 = R"grep -Eh '^\s*[^#\s]*\.\*\s+@' /etc/rsyslog.conf /etc/rsyslog.d/*.conf"  # https://regex101.com/r/DMX1lZ/1
@@ -1965,22 +2216,41 @@ def audit_selinux_not_disabled_in_bootloader() -> int:
     return state
 
 
-def audit_selinux_policy_is_configured() -> int:
+def audit_selinux_not_disabled_in_bootloader_v2() -> int:
     state = 0
 
-    cmd = R"awk -F= '/^SELINUXTYPE=/ {print $2}' /etc/selinux/config"
+    cmd = R"grubby --info=ALL | grep -Po '(selinux|enforcing)=0\b'"
     r = _shellexec(cmd)
-    if r.stdout[0] != "targeted":
+
+    if r.stdout[0] != '':
         state += 1
 
-    cmd = R"sestatus | awk -F: '/Loaded policy/ {print $2}' | sed 's/\s*//'"
+    cmd = R"grep -Psi -- '^\h*GRUB_CMDLINE_LINUX(_DEFAULT)?=\"([^#\n\r]+\h+)?(selinux|enforcing)=[^1\n \r]\d*\b' /etc/default/grub"
     r = _shellexec(cmd)
-    if r.stdout[0] != "targeted":
+
+    if r.stdout[0] != '':
         state += 2
 
     return state
 
 
+def audit_selinux_policy_is_configured() -> int:
+    state = 0
+
+    cmd = R"grep -E '^\s*SELINUXTYPE=(targeted|mls)\b' /etc/selinux/config"
+    r = _shellexec(cmd)
+    if r.stdout == [""]:
+        state += 1
+
+    cmd = R"sestatus | grep -E '^\s*Loaded policy name:\s+(targeted|mls)\b'"
+    r = _shellexec(cmd)
+    if r.stdout == [""]:
+        state += 2
+
+    return state
+
+
+## TODO: Review audit_service_is_active for v4.0.0
 def audit_service_is_active(service: str) -> int:
     state = 0
 
@@ -1992,6 +2262,7 @@ def audit_service_is_active(service: str) -> int:
     return state
 
 
+## TODO: Review audit_service_is_disabled for v4.0.0
 def audit_service_is_disabled(service: str) -> int:
     state = 0
 
@@ -2003,6 +2274,7 @@ def audit_service_is_disabled(service: str) -> int:
     return state
 
 
+## TODO: Review audit_service_is_enabled for v4.0.0
 def audit_service_is_enabled(service: str) -> int:
     state = 0
 
@@ -2014,6 +2286,7 @@ def audit_service_is_enabled(service: str) -> int:
     return state
 
 
+## TODO: Review audit_service_is_enabled_and_is_active for v4.0.0
 def audit_service_is_enabled_and_is_active(service: str) -> int:
     state = 0
 
@@ -2030,6 +2303,7 @@ def audit_service_is_enabled_and_is_active(service: str) -> int:
     return state
 
 
+## TODO: Review audit_service_is_masked for v4.0.0
 def audit_service_is_masked(service) -> int:
     state = 0
 
@@ -2044,6 +2318,7 @@ def audit_service_is_masked(service) -> int:
     return state
 
 
+## TODO: Review audit_shadow_group_is_empty for v4.0.0
 def audit_shadow_group_is_empty() -> int:
     state = 0
     cmd = R"awk -F: '/^shadow:/ {print $4}' /etc/group"
@@ -2062,6 +2337,7 @@ def audit_shadow_group_is_empty() -> int:
     return state
 
 
+## TODO: Review audit_sshd_config_option for v4.0.0
 def audit_sshd_config_option(parameter: str, expected_value: str, comparison: str = "eq") -> int:
     state = 0
     cmd = R"/usr/sbin/sshd -T"
@@ -2105,6 +2381,7 @@ def audit_sshd_config_option(parameter: str, expected_value: str, comparison: st
     return state
 
 
+## TODO: Review audit_sticky_bit_on_world_writable_dirs for v4.0.0
 def audit_sticky_bit_on_world_writable_dirs() -> int:
     cmd = R"df --local -P 2> /dev/null | awk '{if (NR!=1) print $6}' | xargs -I '{}' find '{}' -xdev -type d \( -perm -0002 -a ! -perm -1000 \)"
     r = _shellexec(cmd)
@@ -2117,6 +2394,7 @@ def audit_sticky_bit_on_world_writable_dirs() -> int:
     return state
 
 
+## TODO: Review audit_sudo_commands_use_pty for v4.0.0
 def audit_sudo_commands_use_pty() -> int:
     state = 0
     cmd = R"grep -hEi '^\s*Defaults\s+([^#]\S+,\s*)?use_pty\b' /etc/sudoers /etc/sudoers.d/*"
@@ -2128,6 +2406,7 @@ def audit_sudo_commands_use_pty() -> int:
     return state
 
 
+## TODO: Review audit_sudo_log_exists for v4.0.0
 def audit_sudo_log_exists() -> int:
     state = 0
     cmd = R"grep -hEi '^\s*Defaults\s+([^#;]+,\s*)?logfile\s*=\s*(\")?[^#;]+(\")?' /etc/sudoers /etc/sudoers.d/*"
@@ -2157,6 +2436,7 @@ def audit_sysctl_flags_are_set(flags: "list[str]", value: int) -> int:
     return state
 
 
+## TODO: Review audit_system_accounts_are_secured for v4.0.0
 def audit_system_accounts_are_secured() -> int:
     ignored_users = ['root', 'sync', 'shutdown', 'halt']
     uid_min = int(_shellexec(R"awk '/^\s*UID_MIN/ {print $2}' /etc/login.defs").stdout[0])
@@ -2181,6 +2461,7 @@ def audit_system_accounts_are_secured() -> int:
     return state
 
 
+## TODO: Review audit_system_is_disabled_when_audit_logs_are_full for v4.0.0
 def audit_system_is_disabled_when_audit_logs_are_full() -> int:
     state = 0
 
@@ -2204,6 +2485,7 @@ def audit_system_is_disabled_when_audit_logs_are_full() -> int:
     return state
 
 
+## TODO: Review audit_updates_installed for v4.0.0
 def audit_updates_installed() -> int:
     cmd = R'yum -q check-update'
     r = _shellexec(cmd)
@@ -2232,6 +2514,20 @@ def audit_xdmcp_not_enabled() -> int:
 
         if r.stdout != ['']:
             state += 1
+
+    return state
+
+
+def audit_yum_updates() -> int:
+    cmd = R"yum -q check-update"
+    r = _shellexec(cmd)
+
+    if r.returncode == 0:
+        state = 0
+    elif r.returncode == 1:
+        state = 1
+    elif r.returncode == 100:
+        state = 2
 
     return state
 
@@ -2407,14 +2703,12 @@ def result_stats(results: "list[dict]", start_time, end_time) -> dict:
     return stats
 
 
-def run_tests(tests: "list[dict]"):
+def run_tests(tests: dict) -> "list[dict]":
     results = []
 
-    for test in tests:
+    for test_id in tests.keys():
         result = ""
-
-        ## Test ID
-        test_id = test['_id']
+        test = tests[test_id]
 
         ## Test Description
         test_description = test['description']
@@ -2454,13 +2748,13 @@ def run_tests(tests: "list[dict]"):
                 results.append({'_id': test_id, 'description': test_description})
 
             elif test_type == 'manual':
-                results.append({'_id': test_id, 'description': test_description, 'level': test_level, 'result': 'Manual'})
+                results.append({'_id': test_id, 'description': test_description, 'level': test_level, 'result': "Manual"})
 
             elif test_type == 'skip':
-                results.append({'_id': test_id, 'description': test_description, 'level': test_level, 'result': 'Skipped'})
+                results.append({'_id': test_id, 'description': test_description, 'level': test_level, 'result': "Skipped"})
 
             elif test_type == 'notimplemented':
-                results.append({'_id': test_id, 'description': test_description, 'level': test_level, 'result': 'Not Implemented'})
+                results.append({'_id': test_id, 'description': test_description, 'level': test_level, 'result': "Not Implemented"})
 
             elif test_type == 'test':
                 start_time = _get_utcnow()
@@ -2503,109 +2797,109 @@ benchmarks = {
             {'_id': "1", 'description': "Initial Setup", 'type': "header"},
             {'_id': "1.1", 'description': "Filesystem Configuration", 'type': "header"},
             {'_id': "1.1.1", 'description': "Disable unused filesystems", 'type': "header"},
-            {'_id': "1.1.1.1", 'description': "Ensure mounting of cramfs is disabled", 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': 'cramfs'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.1.2", 'description': "Ensure mounting of squashfs is disabled", 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': 'squashfs'}, 'levels': {'server': 2, 'workstation': 2}},
-            {'_id': "1.1.1.3", 'description': "Ensure mounting of udf is disabled", 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': 'udf'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.2", 'description': "Ensure /tmp is configured", 'function': audit_partition_is_separate, 'kwargs': {'partition': '/tmp'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.3", 'description': "Ensure noexec option set on /tmp partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "noexec", 'partition': '/tmp'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.4", 'description': "Ensure nodev option set on /tmp partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nodev", 'partition': '/tmp'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.5", 'description': "Ensure nosuid option set on /tmp partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nosuid", 'partition': '/tmp'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.6", 'description': "Ensure /dev/shm is configured", 'function': audit_partition_is_separate, 'kwargs': {'partition': '/dev/shm'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.7", 'description': "Ensure noexec option set on /dev/shm partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "noexec", 'partition': '/dev/shm'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.8", 'description': "Ensure nodev option set on /dev/shm partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nodev", 'partition': '/dev/shm'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.9", 'description': "Ensure nosuid option set on /dev/shm partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nosuid", 'partition': '/dev/shm'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.10", 'description': "Ensure separate partition exists for /var", 'function': audit_partition_is_separate, 'kwargs': {'partition': '/var'}, 'levels': {'server': 2, 'workstation': 2}},
-            {'_id': "1.1.11", 'description': "Ensure separate partition exists for /var/tmp", 'function': audit_partition_is_separate, 'kwargs': {'partition': '/var/tmp'}, 'levels': {'server': 2, 'workstation': 2}},
-            {'_id': "1.1.12", 'description': "Ensure noexec option set on /var/tmp partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "noexec", 'partition': '/var/tmp'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.13", 'description': "Ensure nodev option set on /var/tmp partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nodev", 'partition': '/var/tmp'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.14", 'description': "Ensure nosuid option set on /var/tmp partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nosuid", 'partition': '/var/tmp'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.15", 'description': "Ensure separate partition exists for /var/log", 'function': audit_partition_is_separate, 'kwargs': {'partition': '/var/log'}, 'levels': {'server': 2, 'workstation': 2}},
-            {'_id': "1.1.16", 'description': "Ensure separate partition exists for /var/log/audit", 'function': audit_partition_is_separate, 'kwargs': {'partition': '/var/log/audit'}, 'levels': {'server': 2, 'workstation': 2}},
-            {'_id': "1.1.17", 'description': "Ensure separate partition exists for /home", 'function': audit_partition_is_separate, 'kwargs': {'partition': '/home'}, 'levels': {'server': 2, 'workstation': 2}},
-            {'_id': "1.1.18", 'description': "Ensure nodev option set on /home partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nodev", 'partition': '/home'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.19", 'description': "Ensure noexec option set on removable media partitions", 'function': audit_removable_partition_option_is_set, 'kwargs': {'option': 'noexec'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.20", 'description': "Ensure nodev option set on removable media partitions", 'function': audit_removable_partition_option_is_set, 'kwargs': {'option': 'nodev'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.21", 'description': "Ensure nosuid option set on removable media partitions", 'function': audit_removable_partition_option_is_set, 'kwargs': {'option': 'nosuid'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.22", 'description': 'Ensure sticky bit is set on all world-writable directories', 'function': audit_sticky_bit_on_world_writable_dirs, 'levels': {'server': 1, 'workstation': 1}, 'type': "manual"},
-            {'_id': "1.1.23", 'description': "Disable Automounting", 'function': audit_service_is_disabled, 'kwargs': {'service': 'autofs'}, 'levels': {'server': 1, 'workstation': 2}},
-            {'_id': "1.1.24", 'description': "Disable USB Storage", 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': 'usb-storage'}, 'levels': {'server': 1, 'workstation': 2}},
+            {'_id': "1.1.1.1", 'description': "Ensure mounting of cramfs is disabled", 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': "cramfs"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "1.1.1.2", 'description': "Ensure mounting of squashfs is disabled", 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': "squashfs"}, 'levels': {'server': 2, 'workstation': 2}},
+            {'_id': "1.1.1.3", 'description': "Ensure mounting of udf is disabled", 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': "udf"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "1.1.2", 'description': "Ensure /tmp is configured", 'function': audit_partition_is_separate, 'kwargs': {'partition': "/tmp"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "1.1.3", 'description': "Ensure noexec option set on /tmp partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "noexec", 'partition': "/tmp"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "1.1.4", 'description': "Ensure nodev option set on /tmp partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nodev", 'partition': "/tmp"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "1.1.5", 'description': "Ensure nosuid option set on /tmp partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nosuid", 'partition': "/tmp"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "1.1.6", 'description': "Ensure /dev/shm is configured", 'function': audit_partition_is_separate, 'kwargs': {'partition': "/dev/shm"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "1.1.7", 'description': "Ensure noexec option set on /dev/shm partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "noexec", 'partition': "/dev/shm"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "1.1.8", 'description': "Ensure nodev option set on /dev/shm partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nodev", 'partition': "/dev/shm"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "1.1.9", 'description': "Ensure nosuid option set on /dev/shm partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nosuid", 'partition': "/dev/shm"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "1.1.10", 'description': "Ensure separate partition exists for /var", 'function': audit_partition_is_separate, 'kwargs': {'partition': "/var"}, 'levels': {'server': 2, 'workstation': 2}},
+            {'_id': "1.1.11", 'description': "Ensure separate partition exists for /var/tmp", 'function': audit_partition_is_separate, 'kwargs': {'partition': "/var/tmp"}, 'levels': {'server': 2, 'workstation': 2}},
+            {'_id': "1.1.12", 'description': "Ensure noexec option set on /var/tmp partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "noexec", 'partition': "/var/tmp"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "1.1.13", 'description': "Ensure nodev option set on /var/tmp partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nodev", 'partition': "/var/tmp"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "1.1.14", 'description': "Ensure nosuid option set on /var/tmp partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nosuid", 'partition': "/var/tmp"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "1.1.15", 'description': "Ensure separate partition exists for /var/log", 'function': audit_partition_is_separate, 'kwargs': {'partition': "/var/log"}, 'levels': {'server': 2, 'workstation': 2}},
+            {'_id': "1.1.16", 'description': "Ensure separate partition exists for /var/log/audit", 'function': audit_partition_is_separate, 'kwargs': {'partition': "/var/log/audit"}, 'levels': {'server': 2, 'workstation': 2}},
+            {'_id': "1.1.17", 'description': "Ensure separate partition exists for /home", 'function': audit_partition_is_separate, 'kwargs': {'partition': "/home"}, 'levels': {'server': 2, 'workstation': 2}},
+            {'_id': "1.1.18", 'description': "Ensure nodev option set on /home partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nodev", 'partition': "/home"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "1.1.19", 'description': "Ensure noexec option set on removable media partitions", 'function': audit_removable_partition_option_is_set, 'kwargs': {'option': "noexec"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "1.1.20", 'description': "Ensure nodev option set on removable media partitions", 'function': audit_removable_partition_option_is_set, 'kwargs': {'option': "nodev"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "1.1.21", 'description': "Ensure nosuid option set on removable media partitions", 'function': audit_removable_partition_option_is_set, 'kwargs': {'option': "nosuid"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "1.1.22", 'description': "Ensure sticky bit is set on all world-writable directories", 'function': audit_sticky_bit_on_world_writable_dirs, 'levels': {'server': 1, 'workstation': 1}, 'type': "manual"},
+            {'_id': "1.1.23", 'description': "Disable Automounting", 'function': audit_service_is_disabled, 'kwargs': {'service': "autofs"}, 'levels': {'server': 1, 'workstation': 2}},
+            {'_id': "1.1.24", 'description': "Disable USB Storage", 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': "usb-storage"}, 'levels': {'server': 1, 'workstation': 2}},
             {'_id': "1.2", 'description': "Configure Software Updates", 'type': "header"},
             {'_id': "1.2.1", 'description': "Ensure GPG keys are configured", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "1.2.2", 'description': "Ensure package manager repositories are configured", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.2.3", 'description': "Ensure gpgcheck is globally activated", 'function': audit_gpgcheck_is_activated, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "1.2.3", 'description': "Ensure gpgcheck is globally activated", 'function': audit_gpgcheck_is_globally_activated, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "1.3", 'description': "Filesystem Integrity Checking", 'type': "header"},
-            {'_id': "1.3.1", 'description': "Ensure AIDE is installed", 'function': audit_package_is_installed, 'kwargs': {'package': 'aide'}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "1.3.1", 'description': "Ensure AIDE is installed", 'function': audit_package_is_installed, 'kwargs': {'package': "aide"}, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "1.3.2", 'description': "Ensure filesystem integrity is regularly checked", 'function': audit_filesystem_integrity_regularly_checked, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "1.4", 'description': "Secure Boot Settings", 'type': "header"},
             {'_id': "1.4.1", 'description': "Ensure bootloader password is set", 'function': audit_bootloader_password_is_set, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.4.2", 'description': "Ensure permissions on bootloader config are configured", 'function': audit_file_permissions, 'kwargs': {'file': "/boot/grub2/grub.cfg", 'expected_user': "root", 'expected_group': "root", 'expected_mode': '0600'}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "1.4.2", 'description': "Ensure permissions on bootloader config are configured", 'function': audit_file_permissions, 'kwargs': {'file': "/boot/grub2/grub.cfg", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0600"}, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "1.4.3", 'description': "Ensure authentication required for single user mode", 'function': audit_auth_for_single_user_mode, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "1.5", 'description': "Additional Process Hardening", 'type': "header"},
             {'_id': "1.5.1", 'description': "Ensure core dumps are restricted", 'function': audit_core_dumps_restricted, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "1.5.2", 'description': "Ensure XD/NX support is enabled", 'function': audit_nxdx_support_enabled, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "1.5.3", 'description': "Ensure address space layout randomization (ASLR) is enabled", 'function': audit_sysctl_flags_are_set, 'kwargs': {'flags': ["kernel.randomize_va_space"], 'value': 2}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.5.4", 'description': "Ensure prelink is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': 'prelink'}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "1.5.4", 'description': "Ensure prelink is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': "prelink"}, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "1.6", 'description': "Mandatory Access Control", 'type': "header"},
             {'_id': "1.6.1", 'description': "Configure SELinux", 'type': "header"},
-            {'_id': "1.6.1.1", 'description': "Ensure SELinux is installed", 'function': audit_package_is_installed, 'kwargs': {'package': 'libselinux'}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "1.6.1.1", 'description': "Ensure SELinux is installed", 'function': audit_package_is_installed, 'kwargs': {'package': "libselinux"}, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "1.6.1.2", 'description': "Ensure SELinux is not disabled in bootloader configuration", 'function': audit_selinux_not_disabled_in_bootloader, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "1.6.1.3", 'description': "Ensure SELinux policy is configured", 'function': audit_selinux_policy_is_configured, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "1.6.1.4", 'description': "Ensure the SELinux mode is enforcing or permissive", 'function': audit_selinux_mode_not_disabled, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "1.6.1.5", 'description': "Ensure the SELinux mode is enforcing", 'function': audit_selinux_mode_is_enforcing, 'levels': {'server': 2, 'workstation': 2}},
             {'_id': "1.6.1.6", 'description': "Ensure no unconfined services exist", 'function': audit_no_unconfined_services, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.6.1.7", 'description': "Ensure SETroubleshoot is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': 'setroubleshoot'}, 'levels': {'server': 1, 'workstation': None}},
-            {'_id': "1.6.1.8", 'description': 'Ensure the MCS Translation Service (mcstrans) is not installed', 'function': audit_package_not_installed, 'kwargs': {'package': 'mcstrans'}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "1.6.1.7", 'description': "Ensure SETroubleshoot is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': "setroubleshoot"}, 'levels': {'server': 1, 'workstation': None}},
+            {'_id': "1.6.1.8", 'description': "Ensure the MCS Translation Service (mcstrans) is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': "mcstrans"}, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "1.7", 'description': "Command Line Warning Banners", 'type': "header"},
             {'_id': "1.7.1", 'description': "Ensure message of the day is configured properly", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "1.7.2", 'description': "Ensure local login warning banner is configured properly", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "1.7.3", 'description': "Ensure remote login warning banner is configured properly", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.7.4", 'description': "Ensure permissions on /etc/motd are conigured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/motd", 'expected_user': "root", 'expected_group': "root", 'expected_mode': '0644'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.7.5", 'description': "Ensure permissions on /etc/issue are conigured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/issue", 'expected_user': "root", 'expected_group': "root", 'expected_mode': '0644'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.7.6", 'description': "Ensure permissions on /etc/issue.net are conigured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/issue.net", 'expected_user': "root", 'expected_group': "root", 'expected_mode': '0644'}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "1.7.4", 'description': "Ensure permissions on /etc/motd are configured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/motd", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0644"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "1.7.5", 'description': "Ensure permissions on /etc/issue are configured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/issue", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0644"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "1.7.6", 'description': "Ensure permissions on /etc/issue.net are configured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/issue.net", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0644"}, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "1.8", 'description': "Gnome Display Manager", 'type': "header"},
-            {'_id': "1.8.1", 'description': "Ensure GNOME Display Manager is removed", 'function': audit_package_not_installed, 'levels': {'server': 2, 'workstation': None}, 'kwargs': {'package': 'gdm'}},
+            {'_id': "1.8.1", 'description': "Ensure GNOME Display Manager is removed", 'function': audit_package_not_installed, 'levels': {'server': 2, 'workstation': None}, 'kwargs': {'package': "gdm"}},
             {'_id': "1.8.2", 'description': "Ensure GDM login banner is configured", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "1.8.3", 'description': "Ensure last logged in user display is disabled", 'function': audit_gdm_last_user_logged_in_disabled, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "1.8.4", 'description': "Ensure XDCMP is not enabled", 'function': audit_xdmcp_not_enabled, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.9", 'description': 'Ensure updates, patches, and additional security software are installed', 'function': audit_updates_installed, 'levels': {'server': 1, 'workstation': 1}, 'type': "manual"},
+            {'_id': "1.9", 'description': "Ensure updates, patches, and additional security software are installed", 'function': audit_updates_installed, 'levels': {'server': 1, 'workstation': 1}, 'type': "manual"},
             {'_id': "2", 'description': "Services", 'type': "header"},
             {'_id': "2.1", 'description': "inetd Services", 'type': "header"},
-            {'_id': "2.1.1", 'description': "Ensure xinetd is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': 'xinetd'}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "2.1.1", 'description': "Ensure xinetd is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': "xinetd"}, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "2.2", 'description': "Special Purpose Services", 'type': "header"},
             {'_id': "2.2.1", 'description': "Time Synchronization", 'type': "header"},
             {'_id': "2.2.1.1", 'description': "Ensure time synchronisation is in use", 'function': audit_only_one_package_is_installed, 'kwargs': {'packages': "chrony ntp"}, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "2.2.1.2", 'description': "Ensure chrony is configured", 'function': audit_chrony_is_configured, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "2.2.1.3", 'description': "Ensure ntp is configured", 'function': audit_ntp_is_configured, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.2.2", 'description': "Ensure X11 Server components are not installed", 'function': audit_package_not_installed, 'kwargs': {'package': 'xorg-x11-server*'}, 'levels': {'server': 1, 'workstation': None}},
-            {'_id': "2.2.3", 'description': "Ensure Avahi Server is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': 'avahi*'}, 'levels': {'server': 1, 'workstation': 2}},
-            {'_id': "2.2.4", 'description': "Ensure CUPS is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': 'cups'}, 'levels': {'server': 1, 'workstation': None}},
-            {'_id': "2.2.5", 'description': "Ensure DHCP Server is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': 'dhcp'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.2.6", 'description': "Ensure LDAP server is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': 'openldap-servers'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.2.7", 'description': "Ensure DNS server is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': 'bind'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.2.8", 'description': "Ensure FTP server is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': 'vsftpd'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.2.9", 'description': "Ensure HTTP server is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': 'httpd'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.2.10", 'description': "Ensure IMAP and POP3 server is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': 'dovecot'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.2.11", 'description': "Ensure Samba is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': 'samba'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.2.12", 'description': "Ensure HTTP Proxy server is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': 'squid'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.2.13", 'description': 'Ensure net-snmp is not installed', 'function': audit_package_not_installed, 'kwargs': {'package': 'net-snmp'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.2.14", 'description': "Ensure NIS server is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': 'ypserv'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.2.15", 'description': 'Ensure telnet-server is not installed', 'function': audit_package_not_installed, 'kwargs': {'package': 'telnet-server'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.2.16", 'description': 'Ensure mail transfer agent is configured for local-only mode', 'function': audit_mta_is_localhost_only, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.2.17", 'description': 'Ensure nfs-utils is not installed or the nfs-server service is masked', 'function': audit_package_not_installed_or_service_is_masked, 'kwargs': {'package': "nfsutils", 'service': "nfs-server"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "2.2.2", 'description': "Ensure X11 Server components are not installed", 'function': audit_package_not_installed, 'kwargs': {'package': "xorg-x11-server*"}, 'levels': {'server': 1, 'workstation': None}},
+            {'_id': "2.2.3", 'description': "Ensure Avahi Server is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': "avahi*"}, 'levels': {'server': 1, 'workstation': 2}},
+            {'_id': "2.2.4", 'description': "Ensure CUPS is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': "cups"}, 'levels': {'server': 1, 'workstation': None}},
+            {'_id': "2.2.5", 'description': "Ensure DHCP Server is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': "dhcp"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "2.2.6", 'description': "Ensure LDAP server is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': "openldap-servers"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "2.2.7", 'description': "Ensure DNS server is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': "bind"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "2.2.8", 'description': "Ensure FTP server is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': "vsftpd"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "2.2.9", 'description': "Ensure HTTP server is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': "httpd"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "2.2.10", 'description': "Ensure IMAP and POP3 server is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': "dovecot"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "2.2.11", 'description': "Ensure Samba is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': "samba"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "2.2.12", 'description': "Ensure HTTP Proxy server is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': "squid"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "2.2.13", 'description': "Ensure net-snmp is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': "net-snmp"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "2.2.14", 'description': "Ensure NIS server is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': "ypserv"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "2.2.15", 'description': "Ensure telnet-server is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': "telnet-server"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "2.2.16", 'description': "Ensure mail transfer agent is configured for local-only mode", 'function': audit_mta_is_localhost_only, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "2.2.17", 'description': "Ensure nfs-utils is not installed or the nfs-server service is masked", 'function': audit_package_not_installed_or_service_is_masked, 'kwargs': {'package': "nfsutils", 'service': "nfs-server"}, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "2.2.18", 'description': "Ensure rpcbind is not installed or the rpcbind service is masked", 'function': audit_package_not_installed_or_service_is_masked, 'kwargs': {'package': "rpcbind", 'service': "rpcbind"}, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "2.2.19", 'description': "Ensure rsync is not installed or the rsyncd service is masked", 'function': audit_package_not_installed_or_service_is_masked, 'kwargs': {'package': "rsync", 'service': "rsyncd"}, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "2.3", 'description': "Service Clients", 'type': "header"},
-            {'_id': "2.3.1", 'description': "Ensure NIS client is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': 'ypcbind'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.3.2", 'description': "Ensure rsh client is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': 'rsh'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.3.3", 'description': "Ensure talk client is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': 'talk'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.3.4", 'description': "Ensure telnet client is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': 'telnet'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.3.5", 'description': "Ensure LDAP client is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': 'openldap-clients'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.4", 'description': 'Ensure non-essential services are removed or masked', 'levels': {'server': 1, 'workstation': 1}, 'type': "manual"},
+            {'_id': "2.3.1", 'description': "Ensure NIS client is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': "ypcbind"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "2.3.2", 'description': "Ensure rsh client is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': "rsh"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "2.3.3", 'description': "Ensure talk client is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': "talk"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "2.3.4", 'description': "Ensure telnet client is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': "telnet"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "2.3.5", 'description': "Ensure LDAP client is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': "openldap-clients"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "2.4", 'description': "Ensure non-essential services are removed or masked", 'levels': {'server': 1, 'workstation': 1}, 'type': "manual"},
             {'_id': "3", 'description': "Network Configuration", 'type': "header"},
             {'_id': "3.1", 'description': "Disable unused network protocols and devices", 'type': "header"},
             {'_id': "3.1.1", 'description': "Disable IPv6", 'function': audit_sysctl_flags_are_set, 'kwargs': {'flags': ["net.ipv6.conf.all.disaable_ipv6", "net.ipv6.conf.default.disable_ipv6"], 'value': 1}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.1.2", 'description': "Ensure wireless interfaces are disabled", 'function': audit_package_not_installed, 'kwargs': {'package': 'wireless-tools'}, 'levels': {'server': 1, 'workstation': 2}},
-            {'_id': "3.2", 'description': 'Network Parameters (Host Only)', 'type': "header"},
+            {'_id': "3.1.2", 'description': "Ensure wireless interfaces are disabled", 'function': audit_package_not_installed, 'kwargs': {'package': "wireless-tools"}, 'levels': {'server': 1, 'workstation': 2}},
+            {'_id': "3.2", 'description': "Network Parameters (Host Only)", 'type': "header"},
             {'_id': "3.2.1", 'description': "Ensure IP forwarding is disabled", 'function': audit_sysctl_flags_are_set, 'kwargs': {'flags': ["net.ipv4.ip_forward", "net.ipv6.conf.all.forwarding", "net.ipv6.conf.default.forwarding"], 'value': 0}, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "3.2.2", 'description': "Ensure packet redirect sending is disabled", 'function': audit_sysctl_flags_are_set, 'kwargs': {'flags': ["net.ipv4.conf.all.send_redirects", "net.ipv4.conf.default.send_redirects"], 'value': 0}, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "3.3", 'description': "Network Parameters (Host and Router", 'type': "header"},
@@ -2619,8 +2913,8 @@ benchmarks = {
             {'_id': "3.3.8", 'description': "Ensure TCP SYN Cookies is enabled", 'function': audit_sysctl_flags_are_set, 'kwargs': {'flags': ["net.ipv4.tcp_syncookies"], 'value': 1}, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "3.3.9", 'description': "Ensure IPv6 router advertisments are not accepted", 'function': audit_sysctl_flags_are_set, 'kwargs': {'flags': ["net.ipv6.conf.all.accept_ra", "net.ipv6.conf.default.accept_ra"], 'value': 0}, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "3.4", 'description': "Uncommon Network Protocols", 'type': "header"},
-            {'_id': "3.4.1", 'description': "Ensure DCCP is disabled", 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': 'dccp'}, 'levels': {'server': 2, 'workstation': 2}},
-            {'_id': "3.4.1", 'description': "Ensure SCTP is disabled", 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': 'sctp'}, 'levels': {'server': 2, 'workstation': 2}},
+            {'_id': "3.4.1", 'description': "Ensure DCCP is disabled", 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': "dccp"}, 'levels': {'server': 2, 'workstation': 2}},
+            {'_id': "3.4.1", 'description': "Ensure SCTP is disabled", 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': "sctp"}, 'levels': {'server': 2, 'workstation': 2}},
             {'_id': "3.5", 'description': "Firewall Configuration", 'type': "header"},
             {'_id': "3.5.1", 'description': "Configure firewalld", 'type': "header"},
             {'_id': "3.5.1.1", 'description': "Ensure firewalld is installed", 'function': audit_package_is_installed, 'kwargs': {'package': "firewalld"}, 'levels': {'server': 1, 'workstation': 1}},
@@ -2648,24 +2942,24 @@ benchmarks = {
             {'_id': "3.5.3.1.2", 'description': "Ensure nftables is not installed with iptables", 'function': audit_package_not_installed, 'kwargs': {'package': "nftables"}, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "3.5.3.1.3", 'description': "Ensure firewalld is not installed with iptables", 'function': audit_package_not_installed, 'kwargs': {'package': "firewalld"}, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "3.5.3.2", 'description': "Configure IPv4 iptables", 'type': "header"},
-            {'_id': "3.5.3.2.1", 'description': "Ensure iptables loopback traffic is configured", 'function': audit_iptables_loopback_is_configured, 'kwargs': {'ip_version': 'ipv4'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.5.3.2.2", 'description': "Ensure iptables outbound and established connections are configured", 'function': audit_iptables_outbound_and_established_connections, 'kwargs': {'ip_version': 'ipv4'}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "3.5.3.2.1", 'description': "Ensure iptables loopback traffic is configured", 'function': audit_iptables_loopback_is_configured, 'kwargs': {'ip_version': "ipv4"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "3.5.3.2.2", 'description': "Ensure iptables outbound and established connections are configured", 'function': audit_iptables_outbound_and_established_connections, 'kwargs': {'ip_version': "ipv4"}, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "3.5.3.2.2", 'description': "Ensure iptables rules exist for all open ports", 'levels': {'server': 1, 'workstation': 1}, 'type': "manual"},
-            {'_id': "3.5.3.2.4", 'description': "Ensure iptables default deny firewall policy", 'function': audit_iptables_default_deny_policy, 'kwargs': {'ip_version': 'ipv4'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.5.3.2.5", 'description': "Ensure iptables rules are saved", 'function': audit_iptables_rules_are_saved, 'kwargs': {'ip_version': 'ipv4'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.5.3.2.6", 'description': "Ensure iptables is enabled and running", 'function': audit_service_is_enabled_and_is_active, 'kwargs': {'service': 'iptables'}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "3.5.3.2.4", 'description': "Ensure iptables default deny firewall policy", 'function': audit_iptables_default_deny_policy, 'kwargs': {'ip_version': "ipv4"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "3.5.3.2.5", 'description': "Ensure iptables rules are saved", 'function': audit_iptables_rules_are_saved, 'kwargs': {'ip_version': "ipv4"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "3.5.3.2.6", 'description': "Ensure iptables is enabled and running", 'function': audit_service_is_enabled_and_is_active, 'kwargs': {'service': "iptables"}, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "3.5.3.3", 'description': "Configure IPv6 ip6tables", 'type': "header"},
-            {'_id': "3.5.3.3.1", 'description': "Ensure ip6tables loopback traffic is configured", 'function': audit_iptables_loopback_is_configured, 'kwargs': {'ip_version': 'ipv6'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.5.3.3.2", 'description': "Ensure ip6tables outbound and established connections are configured", 'function': audit_iptables_outbound_and_established_connections, 'kwargs': {'ip_version': 'ipv6'}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "3.5.3.3.1", 'description': "Ensure ip6tables loopback traffic is configured", 'function': audit_iptables_loopback_is_configured, 'kwargs': {'ip_version': "ipv6"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "3.5.3.3.2", 'description': "Ensure ip6tables outbound and established connections are configured", 'function': audit_iptables_outbound_and_established_connections, 'kwargs': {'ip_version': "ipv6"}, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "3.5.3.3.2", 'description': "Ensure ip6tables rules exist for all open ports", 'levels': {'server': 1, 'workstation': 1}, 'type': "manual"},
-            {'_id': "3.5.3.3.4", 'description': "Ensure ip6tables default deny firewall policy", 'function': audit_iptables_default_deny_policy, 'kwargs': {'ip_version': 'ipv6'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.5.3.3.5", 'description': "Ensure ip6tables rules are saved", 'function': audit_iptables_rules_are_saved, 'kwargs': {'ip_version': 'ipv6'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.5.3.3.6", 'description': "Ensure ip6tables is enabled and running", 'function': audit_service_is_enabled_and_is_active, 'kwargs': {'service': 'ip6tables'}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "3.5.3.3.4", 'description': "Ensure ip6tables default deny firewall policy", 'function': audit_iptables_default_deny_policy, 'kwargs': {'ip_version': "ipv6"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "3.5.3.3.5", 'description': "Ensure ip6tables rules are saved", 'function': audit_iptables_rules_are_saved, 'kwargs': {'ip_version': "ipv6"}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "3.5.3.3.6", 'description': "Ensure ip6tables is enabled and running", 'function': audit_service_is_enabled_and_is_active, 'kwargs': {'service': "ip6tables"}, 'levels': {'server': 1, 'workstation': 1}},
             ##
             {'_id': "4", 'description': "Logging and Auditing", 'type': "header"},
             {'_id': "4.1", 'description': "Configure System Accounting (auditd)", 'type': "header"},
             {'_id': "4.1.1", 'description': "Ensure auditing is enabled", 'type': "header"},
-            {'_id': "4.1.1.1", 'description': "Ensure auditd is installed", 'function': audit_package_is_installed, 'kwargs': {'package': 'audit'}, 'levels': {'server': 2, 'workstation': 2}},
+            {'_id': "4.1.1.1", 'description': "Ensure auditd is installed", 'function': audit_package_is_installed, 'kwargs': {'package': "audit"}, 'levels': {'server': 2, 'workstation': 2}},
             {'_id': "4.1.1.2", 'description': "Ensure auditd service is enabled and running", 'function': audit_service_is_enabled_and_is_active, 'kwargs': {'service': "auditd"}, 'levels': {'server': 2, 'workstation': 2}},
             {'_id': "4.1.1.3", 'description': "Ensure auditing for processes that start prior to auditd is enabled", 'function': audit_auditing_for_processes_prior_to_start_is_enabled, 'levels': {'server': 2, 'workstation': 2}},
             {'_id': "4.1.2", 'description': "Configure Data Retention", 'type': "header"},
@@ -2691,7 +2985,7 @@ benchmarks = {
             {'_id': "4.2", 'description': "Configure Logging", 'type': "header"},
             {'_id': "4.2.1", 'description': "Configure rsyslog", 'type': "header"},
             {'_id': "4.2.1.1", 'description': "Ensure rsyslog is installed", 'function': audit_package_is_installed, 'kwargs': {'package': "rsyslog"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.2.1.2", 'description': "Ensure rsyslog service is enabled and running", 'function': audit_service_is_enabled_and_is_active, 'levels': {'server': 1, 'workstation': 1}, 'kwargs': {'service': 'rsyslog'}},
+            {'_id': "4.2.1.2", 'description': "Ensure rsyslog service is enabled and running", 'function': audit_service_is_enabled_and_is_active, 'levels': {'server': 1, 'workstation': 1}, 'kwargs': {'service': "rsyslog"}},
             {'_id': "4.2.1.3", 'description': "Ensure rsyslog default file permissions configured", 'function': audit_rsyslog_default_file_permission_is_configured, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "4.2.1.4", 'description': "Ensure logging is configured", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "4.2.1.5", 'description': "Ensure rsyslog is configured to send logs to a remote log host", 'function': audit_rsyslog_sends_logs_to_a_remote_log_host, 'levels': {'server': 1, 'workstation': 1}},
@@ -2704,7 +2998,7 @@ benchmarks = {
             {'_id': "4.2.4", 'description': "Ensure logrotate is configured", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "5", 'description': "Access, Authentication and Authorization", 'type': "header"},
             {'_id': "5.1", 'description': "Configure time-based job schedulers", 'type': "header"},
-            {'_id': "5.1.1", 'description': "Ensure cron daemon is enabled and running", 'function': audit_service_is_enabled_and_is_active, 'kwargs': {'service': 'crond'}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "5.1.1", 'description': "Ensure cron daemon is enabled and running", 'function': audit_service_is_enabled_and_is_active, 'kwargs': {'service': "crond"}, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "5.1.2", 'description': "Ensure permissions on /etc/crontab are configured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/crontab", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0600"}, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "5.1.3", 'description': "Ensure permissions on /etc/cron.hourly are configured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/cron.hourly", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0700"}, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "5.1.4", 'description': "Ensure permissions on /etc/cron.daily are configured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/cron.daily", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0700"}, 'levels': {'server': 1, 'workstation': 1}},
@@ -2714,7 +3008,7 @@ benchmarks = {
             {'_id': "5.1.8", 'description': "Ensure cron is restricted to authorized users", 'function': audit_cron_is_restricted_to_authorized_users, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "5.1.9", 'description': "Ensure at is restricted to authorized users", 'function': audit_at_is_restricted_to_authorized_users, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "5.2", 'description': "Configure sudo", 'type': "header"},
-            {'_id': "5.2.1", 'description': "Ensure sudo is installed", 'function': audit_package_is_installed, 'kwargs': {'package': 'sudo'}, 'levels': {'server': 1, 'workstation': 1}},
+            {'_id': "5.2.1", 'description': "Ensure sudo is installed", 'function': audit_package_is_installed, 'kwargs': {'package': "sudo"}, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "5.2.2", 'description': "Ensure sudo commands use pty", 'function': audit_sudo_commands_use_pty, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "5.2.3", 'description': "Ensure sudo log file exists", 'function': audit_sudo_log_exists, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "5.3", 'description': "Configure SSH Server", 'type': "header"},
@@ -2795,424 +3089,377 @@ benchmarks = {
             {'_id': "6.2.16", 'description': "Ensure no users have .netrc files", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
             {'_id': "6.2.17", 'description': "Ensure no users have .rhosts files", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
         ],
-        '4.0.0': [
-            {'_id': "1", 'description': "Initial Setup", 'type': "header"},
-            {'_id': "1.1", 'description': "Filesystem", 'type': "header"},
-            {'_id': "1.1.1", 'description': "Configure Filesystem Kernel Modules", 'type': "header"},
-            {'_id': "1.1.1.1", 'description': "Ensure cramfs kernel module is not available", 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': 'cramfs'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.1.2", 'description': "Ensure freevxfs kernel module is not available", 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': 'freevxfs'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.1.3", 'description': "Ensure hfs kernel module is not available", 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': 'hfs'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.1.4", 'description': "Ensure hfsplus kernel module is not available", 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': 'hfsplus'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.1.5", 'description': "Ensure jffs2 kernel module is not available", 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': 'jffs2'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.1.6", 'description': "Ensure squashfs kernel module is not available", 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': 'squashfs'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.1.7", 'description': "Ensure udf kernel module is not available", 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': 'udf'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.1.8", 'description': 'Ensure usb-storage kernel module is not available', 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': 'usb-storage'}, 'levels': {'server': 1, 'workstation': 1}},
-            ##
-            {'_id': "1.1.2", 'description': "Configure Filesystem Partitions", 'type': "header"},
-            {'_id': "1.1.2.1", 'description': "Configure /tmp", 'type': "header"},
-            {'_id': "1.1.2.1.1", 'description': "Ensure /tmp is a separate partition", 'function': audit_partition_is_separate, 'kwargs': {'partition': '/tmp'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.2.1.2", 'description': "Ensure nodev option set on /tmp partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nodev", 'partition': '/tmp'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.2.1.3", 'description': "Ensure nosuid option set on /tmp partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nosuid", 'partition': '/tmp'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.2.1.4", 'description': "Ensure noexec option set on /tmp partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "noexec", 'partition': '/tmp'}, 'levels': {'server': 1, 'workstation': 1}},
-            ##
-            {'_id': "1.1.2.2", 'description': "Configure /dev/shm", 'type': "header"},
-            {'_id': "1.1.2.2.1", 'description': "Ensure /dev/shm is a separate partition", 'function': audit_partition_is_separate, 'kwargs': {'partition': '/dev/shm'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.2.2.2", 'description': "Ensure nodev option set on /dev/shm partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nodev", 'partition': '/dev/shm'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.2.2.3", 'description': "Ensure nosuid option set on /dev/shm partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nosuid", 'partition': '/dev/shm'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.2.2.4", 'description': "Ensure noexec option set on /dev/shm partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "noexec", 'partition': '/dev/shm'}, 'levels': {'server': 1, 'workstation': 1}},
-            ##
-            {'_id': "1.1.2.3", 'description': "Configure /home", 'type': "header"},
-            {'_id': "1.1.2.3.1", 'description': "Ensure separate partition exists for /home", 'function': audit_partition_is_separate, 'kwargs': {'partition': '/home'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.2.3.2", 'description': "Ensure nodev option set on /home partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nodev", 'partition': '/home'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.2.3.3", 'description': "Ensure nosuid option set on /home partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nosuid", 'partition': '/home'}, 'levels': {'server': 1, 'workstation': 1}},
-            ##
-            {'_id': "1.1.2.4", 'description': "Configure /var", 'type': "header"},
-            {'_id': "1.1.2.4.1", 'description': "Ensure separate partition exists for /var", 'function': audit_partition_is_separate, 'kwargs': {'partition': '/var'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.2.4.2", 'description': "Ensure nodev option set on /var partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nodev", 'partition': '/var'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.2.4.3", 'description': "Ensure nosuid option set on /var partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nosuid", 'partition': '/var'}, 'levels': {'server': 1, 'workstation': 1}},
-            ##
-            {'_id': "1.1.2.5", 'description': "Configure /var/tmp", 'type': "header"},
-            {'_id': "1.1.2.5.1", 'description': "Ensure separate partition exists for /var/tmp", 'function': audit_partition_is_separate, 'kwargs': {'partition': '/var/tmp'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.2.5.2", 'description': "Ensure nodev option set on /var/tmp partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nodev", 'partition': '/var/tmp'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.2.5.3", 'description': "Ensure nosuid option set on /var/tmp partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nosuid", 'partition': '/var/tmp'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.2.5.4", 'description': "Ensure noexec option set on /var/tmp partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "noexec", 'partition': '/var/tmp'}, 'levels': {'server': 1, 'workstation': 1}},
-            ##
-            {'_id': "1.1.2.6", 'description': "Configure /var/log", 'type': "header"},
-            {'_id': "1.1.2.6.1", 'description': "Ensure separate partition exists for /var/log", 'function': audit_partition_is_separate, 'kwargs': {'partition': '/var/log'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.2.6.2", 'description': "Ensure nodev option set on /var/log partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nodev", 'partition': '/var/log'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.2.6.3", 'description': "Ensure nosuid option set on /var/log partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nosuid", 'partition': '/var/log'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.2.6.4", 'description': "Ensure noexec option set on /var/log partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "noexec", 'partition': '/var/log'}, 'levels': {'server': 1, 'workstation': 1}},
-            ##
-            {'_id': "1.1.2.7", 'description': "Configure /var/log/audit", 'type': "header"},
-            {'_id': "1.1.2.7.1", 'description': "Ensure separate partition exists for /var/log/audit", 'function': audit_partition_is_separate, 'kwargs': {'partition': '/var/log/audit'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.2.7.2", 'description': "Ensure nodev option set on /var/log/audit partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nodev", 'partition': '/var/log/audit'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.2.7.3", 'description': "Ensure nosuid option set on /var/log/audit partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nosuid", 'partition': '/var/log/audit'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.1.2.7.4", 'description': "Ensure noexec option set on /var/log/audit partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "noexec", 'partition': '/var/log/audit'}, 'levels': {'server': 1, 'workstation': 1}},
-            ##
-            {'_id': "1.2", 'description': "Configure Software and Patch Management", 'type': "header"},
-            {'_id': "1.2.1", 'description': "Ensure GPG keys are configured", 'type': "manual", 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.2.2", 'description': "Ensure gpgcheck is globally activated", 'function': audit_gpgcheck_is_activated, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.2.3", 'description': "Ensure repo_gpgcheck is globally activated", 'type': "manual", 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.2.4", 'description': "Ensure package manager repositories are configured", 'type': "manual", 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.2.4", 'description': 'Ensure updates, patches, and additional security software are installed', 'type': "manual", 'levels': {'server': 1, 'workstation': 1}},
-            ##
-            {'_id': "1.3", 'description': "Configure Secure Boot Settings", 'type': "header"},
-            {'_id': "1.3.1", 'description': "Ensure bootloader password is set", 'function': audit_bootloader_password_is_set, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.3.2", 'description': "Ensure permissions on bootloader config are configured", 'function': audit_file_permissions, 'kwargs': {'file': "/boot/grub2/grub.cfg", 'expected_user': "root", 'expected_group': "root", 'expected_mode': '0600'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.3.3", 'description': "Ensure authentication required for single user mode", 'function': audit_auth_for_single_user_mode, 'levels': {'server': 1, 'workstation': 1}},
-            ##
-            {'_id': "1.4", 'description': "Configure Additional Process Hardening", 'type': "header"},
-            {'_id': "1.4.1", 'description': 'Ensure address space layout randomization (ASLR) is enabled', 'function': audit_sysctl_flags_are_set, 'kwargs': {'flags': ['kernel.randomize_va_space'], 'value': 2}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.4.1", 'description': "Ensure core dumps are restricted", 'function': audit_core_dumps_restricted, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.4.2", 'description': "Ensure ptrace_scope is restricted", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.4.2", 'description': "Ensure core dump backtraces are disabled", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.4.4", 'description': "Ensure core dump storage is disabled", 'function': None, 'kwargs': {'package': 'prelink'}, 'levels': {'server': 1, 'workstation': 1}},
-            ##
-            {'_id': "1.5", 'description': "Mandatory Access Control", 'type': "header"},
-            {'_id': "1.5.1", 'description': "Configure SELinux", 'type': "header"},
-            {'_id': "1.5.1.1", 'description': "Ensure SELinux is installed", 'function': audit_package_is_installed, 'kwargs': {'package': 'libselinux'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.5.1.2", 'description': "Ensure SELinux is not disabled in bootloader configuration", 'function': audit_selinux_not_disabled_in_bootloader, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.5.1.3", 'description': "Ensure SELinux policy is configured", 'function': audit_selinux_policy_is_configured, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.5.1.4", 'description': "Ensure the SELinux mode is not disabled", 'function': audit_selinux_mode_not_disabled, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.5.1.5", 'description': "Ensure the SELinux mode is enforcing", 'function': audit_selinux_mode_is_enforcing, 'levels': {'server': 2, 'workstation': 2}},
-            {'_id': "1.5.1.6", 'description': "Ensure no unconfined services exist", 'function': audit_no_unconfined_services, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.5.1.7", 'description': 'Ensure the MCS Translation Service (mcstrans) is not installed', 'function': audit_package_not_installed, 'kwargs': {'package': 'mcstrans'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.5.1.8", 'description': "Ensure SETroubleshoot is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': 'setroubleshoot'}, 'levels': {'server': 1, 'workstation': None}},
-            ##
-            {'_id': "1.6", 'description': "Command Line Warning Banners", 'type': "header"},
-            {'_id': "1.6.1", 'description': "Ensure message of the day is configured properly", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.6.2", 'description': "Ensure local login warning banner is configured properly", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.6.3", 'description': "Ensure remote login warning banner is configured properly", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.6.4", 'description': "Ensure access to /etc/motd is conigured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/motd", 'expected_user': "root", 'expected_group': "root", 'expected_mode': '0644'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.6.5", 'description': "Ensure access to /etc/issue is conigured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/issue", 'expected_user': "root", 'expected_group': "root", 'expected_mode': '0644'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.6.6", 'description': "Ensure access to /etc/issue.net is conigured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/issue.net", 'expected_user': "root", 'expected_group': "root", 'expected_mode': '0644'}, 'levels': {'server': 1, 'workstation': 1}},
-            ##
-            {'_id': "1.7", 'description': "Configure Gnome Display Manager", 'type': "header"},
-            {'_id': "1.7.1", 'description': "Ensure GNOME Display Manager is removed", 'function': audit_package_not_installed, 'levels': {'server': 2, 'workstation': None}, 'kwargs': {'package': 'gdm'}},
-            {'_id': "1.7.2", 'description': "Ensure GDM login banner is configured", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.7.3", 'description': 'Ensure GDM disable-user-list option is enabled', 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.7.4", 'description': "Ensure GDM screen locks when the user is idle", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.7.5", 'description': "Ensure GDM screen locks cannot be overridden", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.7.6", 'description': "Ensure GDM automatic mounting of removable media is disabled", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.7.7", 'description': "Ensure GDM disabling automatic mounting of removable media is not overridden", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.7.8", 'description': 'Ensure GDM autorun-never is enabled', 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.7.9", 'description': 'Ensure GDM autorun-never is not overridden', 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "1.7.10", 'description': "Ensure XDCMP is not enabled", 'function': audit_xdmcp_not_enabled, 'levels': {'server': 1, 'workstation': 1}},
-            ##
-            {'_id': "2", 'description': "Services", 'type': "header"},
-            {'_id': "2.1", 'description': "Configure Time Synchronization", 'type': "header"},
-            {'_id': "2.1.1", 'description': "Ensure time synchronisation is in use", 'function': audit_only_one_package_is_installed, 'kwargs': {'packages': 'chrony ntp'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.1.2", 'description': "Ensure chrony is configured", 'function': audit_chrony_is_configured, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.1.3", 'description': "Ensure chrony is not run as the root user", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            ##
-            {'_id': "2.2", 'description': "Configure Special Purpose Services", 'type': "header"},
-            {'_id': "2.2.1", 'description': "Ensure autofs services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.2.2", 'description': "Ensure avahi services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.2.3", 'description': "Ensure dhcp services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.2.4", 'description': "Ensure dns services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.2.5", 'description': "Ensure dnsmasq services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.2.6", 'description': "Ensure samba services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.2.7", 'description': "Ensure ftp services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.2.8", 'description': "Ensure message access services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.2.9", 'description': "Ensure network file system services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.2.10", 'description': "Ensure nis server services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.2.11", 'description': "Ensure print server services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.2.12", 'description': "Ensure rpcbind services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.2.13", 'description': "Ensure rsync  services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.2.14", 'description': "Ensure snmp services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.2.15", 'description': "Ensure telnet services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.2.16", 'description': "Ensure tftp services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.2.17", 'description': "Ensure web proxy server services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.2.18", 'description': "Ensure web server services services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.2.19", 'description': "Ensure xinetd services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.2.20", 'description': "Ensure X window server services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.2.21", 'description': 'Ensure mail transfer agents are configured for local-only mode', 'function': audit_mta_is_localhost_only, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.2.21", 'description': "Ensure only approved services are listening on a network interface", 'type': "manual", 'levels': {'server': 1, 'workstation': 1}},
-            ##
-            {'_id': "2.3", 'description': "Configure Service Clients", 'type': "header"},
-            {'_id': "2.3.1", 'description': "Ensure ftp client is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': 'ftp'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.3.2", 'description': "Ensure ldap client is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': 'openldap-clients'}, 'levels': {'server': 2, 'workstation': 2}},
-            {'_id': "2.3.3", 'description': "Ensure nis client is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': 'ypbind'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.3.4", 'description': "Ensure telnet client is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': 'telnet'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "2.3.5", 'description': "Ensure tftp client is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': 'tftp'}, 'levels': {'server': 1, 'workstation': 1}},
-            ##
-            {'_id': "3.1", 'description': "Network", 'type': "header"},
-            {'_id': "3.1", 'description': "Configure Network Devices", 'type': "header"},
-            {'_id': "3.1.1", 'description': "Ensure IPv6 status is identified", 'type': "manual", 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.1.2", 'description': "Ensure wireless interfaces are disabled", 'function': audit_package_not_installed, 'kwargs': {'package': 'wireless-tools'}, 'levels': {'server': 1, 'workstation': 2}},
-            {'_id': "3.1.2", 'description': "Ensure bluetooth services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 2}},
-            ##
-            {'_id': "3.2", 'description': "Configure Network Kernel Modules", 'type': "header"},
-            {'_id': "3.2.1", 'description': "Ensure dccp kernel module is not available", 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': 'dccp'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.2.2", 'description': "Ensure tipc kernel module is not available", 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': 'tipc'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.2.3", 'description': "Ensure rds kernel module is not available", 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': 'rds'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.2.4", 'description': "Ensure sctp kernel module is not available", 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': 'sctp'}, 'levels': {'server': 1, 'workstation': 1}},
-            ##
-            {'_id': "3.3", 'description': "Configure Network Kernel Parameters", 'type': "header"},
-            {'_id': "3.3.1", 'description': "Ensure IP forwarding is disabled", 'function': audit_sysctl_flags_are_set, 'kwargs': {'flags': ['net.ipv4.ip_forward', 'net.ipv6.conf.all.forwarding', 'net.ipv6.conf.default.forwarding'], 'value': 0}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.3.2", 'description': "Ensure packet redirect sending is disabled", 'function': audit_sysctl_flags_are_set, 'kwargs': {'flags': ['net.ipv4.conf.all.send_redirects', 'net.ipv4.conf.default.send_redirects'], 'value': 0}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.3.3", 'description': "Ensure bogus icmp responses are ignored", 'function': audit_sysctl_flags_are_set, 'kwargs': {'flags': ['net.ipv4.icmp_ignore_bogus_error_responses'], 'value': 1}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.3.4", 'description': "Ensure broadcast icmp requests are ignored", 'function': audit_sysctl_flags_are_set, 'kwargs': {'flags': ['net.ipv4.icmp_echo_ignore_broadcasts'], 'value': 1}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.3.5", 'description': "Ensure icmp redirects are not accepted", 'function': audit_sysctl_flags_are_set, 'kwargs': {'flags': ['net.ipv4.conf.all.accept_redirects', 'net.ipv4.conf.default.accept_redirects', 'net.ipv6.conf.all.accept_redirects', 'net.ipv6.conf.default.accept_redirects'], 'value': 0}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.3.6", 'description': "Ensure secure icmp redirects are not accepted", 'function': audit_sysctl_flags_are_set, 'kwargs': {'flags': ['net.ipv4.conf.all.secure_redirects', 'net.ipv4.conf.default.secure_redirects'], 'value': 0}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.3.7", 'description': "Ensure Reverse Path Filtering is enabled", 'function': audit_sysctl_flags_are_set, 'kwargs': {'flags': ['net.ipv4.conf.all.rp_filter', 'net.ipv4.conf.default.rp_filter'], 'value': 1}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.3.8", 'description': "Ensure source routed packets are not accepted", 'function': audit_sysctl_flags_are_set, 'kwargs': {'flags': ['net.ipv4.conf.all.accept_source_route', 'net.ipv4.conf.default.accept_source_route', 'net.ipv6.conf.all.accept_source_route', 'net.ipv6.conf.default.accept_source_route'], 'value': 0}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.3.9", 'description': "Ensure suspicious packets are logged", 'function': audit_sysctl_flags_are_set, 'kwargs': {'flags': ['net.ipv4.conf.all.log_martians', 'net.ipv4.conf.default.log_martians'], 'value': 1}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.3.10", 'description': "Ensure TCP SYN Cookies is enabled", 'function': audit_sysctl_flags_are_set, 'kwargs': {'flags': ['net.ipv4.tcp_syncookies'], 'value': 1}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.3.11", 'description': "Ensure IPv6 router advertisments are not accepted", 'function': audit_sysctl_flags_are_set, 'kwargs': {'flags': ['net.ipv6.conf.all.accept_ra', 'net.ipv6.conf.default.accept_ra'], 'value': 0}, 'levels': {'server': 1, 'workstation': 1}},
-            ##
-            {'_id': "3.4", 'description': "Configure Host Based Firewall", 'type': "header"},
-            {'_id': "3.4.1", 'description': "Configure firewall utility", 'type': "header"},
-            {'_id': "3.4.1.1", 'description': "Ensure iptables installed", 'function': audit_package_is_installed, 'kwargs': {'package': 'firewalld'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.4.1.2", 'description': "Ensure a single firewall configuration utility is in place", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            ##
-            {'_id': "3.4.2", 'description': "Configure firewalld", 'type': "header"},
-            {'_id': "3.4.1.1", 'description': "Ensure firewalld is installed", 'function': audit_package_is_installed, 'kwargs': {'package': "firewalld"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.4.1.2", 'description': "Ensure firewalld service is enabled and running", 'function': audit_service_is_enabled_and_is_active, 'kwargs': {'service': 'firewalld'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.4.1.3", 'description': "Ensure firewalld drops unnecessary services and ports", 'levels': {'server': 1, 'workstation': 1}, 'type': 'manual'},
-            {'_id': "3.4.1.4", 'description': "Ensure network interfaces are assigned to appropriate zone", 'levels': {'server': 1, 'workstation': 1}, 'type': 'manual'},
-            ##
-            {'_id': "3.4.3", 'description': "Configure nftables", 'type': "header"},
-            {'_id': "3.4.3.1", 'description': "Ensure nftables is installed", 'function': audit_package_is_installed, 'kwargs': {'package': "nftables"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.4.3.2", 'description': "Ensure iptables are flushed with nftables", 'function': audit_iptables_is_flushed, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.4.3.3", 'description': "Ensure an nftables table exists", 'function': audit_nftables_table_exists, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.4.3.4", 'description': "Ensure nftables base chains exist", 'function': audit_nftables_base_chains_exist, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.4.3.5", 'description': "Ensure nftables loopback traffic is configured", 'function': audit_nftables_loopback_is_configured, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.4.3.6", 'description': "Ensure nftables outbound and established connections are configured", 'function': audit_nftables_outbound_and_established_connections, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.4.3.7", 'description': "Ensure nftables default deny firewall policy", 'function': audit_nftables_default_deny_policy, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.4.3.8", 'description': "Ensure nftables service is enabled and active", 'function': audit_service_is_enabled_and_is_active, 'kwargs': {'service': "nftables"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.4.3.9", 'description': "Ensure nftables rules are permanent", 'function': None, 'kwargs': {'service': "nftables"}, 'levels': {'server': 1, 'workstation': 1}},
-            ##
-            {'_id': "3.4.4", 'description': "Configure iptables", 'type': "header"},
-            {'_id': "3.4.4.1", 'description': "Configure iptables software", 'type': "header"},
-            {'_id': "3.4.4.1.1", 'description': "Ensure iptables packages are installed", 'function': audit_package_is_installed, 'kwargs': {'package': "iptables-services"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.4.4.2", 'description': "Configure iptables", 'type': "header"},
-            {'_id': "3.4.4.2.1", 'description': "Ensure iptables loopback traffic is configured", 'function': audit_iptables_loopback_is_configured, 'kwargs': {'ip_version': 'ipv4'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.4.4.2.2", 'description': "Ensure iptables outbound and established connections are configured", 'function': audit_iptables_outbound_and_established_connections, 'kwargs': {'ip_version': 'ipv4'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.4.4.2.2", 'description': "Ensure iptables rules exist for all open ports", 'levels': {'server': 1, 'workstation': 1}, 'type': "manual"},
-            {'_id': "3.4.4.2.4", 'description': "Ensure iptables default deny firewall policy", 'function': audit_iptables_default_deny_policy, 'kwargs': {'ip_version': 'ipv4'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.4.4.2.5", 'description': "Ensure iptables rules are saved", 'function': audit_iptables_rules_are_saved, 'kwargs': {'ip_version': 'ipv4'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.4.4.2.6", 'description': "Ensure iptables service is enabled and active", 'function': audit_service_is_enabled_and_is_active, 'kwargs': {'service': 'iptables'}, 'levels': {'server': 1, 'workstation': 1}},
-            ##
-            {'_id': "3.4.4.3", 'description': "Configure ip6tables", 'type': "header"},
-            {'_id': "3.4.4.3.1", 'description': "Ensure ip6tables loopback traffic is configured", 'function': audit_iptables_loopback_is_configured, 'kwargs': {'ip_version': 'ipv6'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.4.4.3.2", 'description': "Ensure ip6tables outbound and established connections are configured", 'function': audit_iptables_outbound_and_established_connections, 'kwargs': {'ip_version': 'ipv6'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.4.4.3.2", 'description': "Ensure ip6tables firewall rules exist for all open ports", 'levels': {'server': 1, 'workstation': 1}, 'type': "manual"},
-            {'_id': "3.4.4.3.4", 'description': "Ensure ip6tables default deny firewall policy", 'function': audit_iptables_default_deny_policy, 'kwargs': {'ip_version': 'ipv6'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.4.4.3.5", 'description': "Ensure ip6tables rules are saved", 'function': audit_iptables_rules_are_saved, 'kwargs': {'ip_version': 'ipv6'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "3.4.4.3.6", 'description': "Ensure ip6tables is enabled and active", 'function': audit_service_is_enabled_and_is_active, 'kwargs': {'service': 'ip6tables'}, 'levels': {'server': 1, 'workstation': 1}},
-            ##
-            {'_id': "4", 'description': "Access, Authentication and Authorization", 'type': "header"},
-            {'_id': "4.1", 'description': "Configure job schedulers", 'type': "header"},
-            {'_id': "4.1.1", 'description': "Configure cron", 'type': "header"},
-            {'_id': "4.1.1.1", 'description': "Ensure cron daemon is enabled and active", 'function': audit_service_is_enabled_and_is_active, 'kwargs': {'service': 'crond'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.1.1.2", 'description': "Ensure permissions on /etc/crontab are configured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/crontab", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0600"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.1.1.3", 'description': "Ensure permissions on /etc/cron.hourly are configured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/cron.hourly", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0700"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.1.1.4", 'description': "Ensure permissions on /etc/cron.daily are configured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/cron.daily", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0700"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.1.1.5", 'description': "Ensure permissions on /etc/cron.weekly are configured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/cron.weekly", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0700"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.1.1.6", 'description': "Ensure permissions on /etc/cron.monthly are configured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/cron.monthly", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0700"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.1.1.7", 'description': "Ensure permissions on /etc/cron.d are configured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/cron.d", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0700"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.1.1.8", 'description': "Ensure crontab is restricted to authorized users", 'function': audit_cron_is_restricted_to_authorized_users, 'levels': {'server': 1, 'workstation': 1}},
-            ##
-            {'_id': "4.1.2", 'description': "Configure at", 'type': "header"},
-            {'_id': "4.1.2.1", 'description': "Ensure at is restricted to authorized users", 'function': audit_at_is_restricted_to_authorized_users, 'levels': {'server': 1, 'workstation': 1}},
-            ##
-            {'_id': "4.2", 'description': "Configure SSH Server", 'type': "header"},
-            {'_id': "4.2.1", 'description': "Ensure permissions on /etc/ssh/sshd_config are configured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/ssh/sshd_config", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0600"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.2.2", 'description': "Ensure permissions on SSH private host key files are configured", 'function': audit_permissions_on_private_host_key_files, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.2.3", 'description': "Ensure permissions on SSH public host key files are configures", 'function': audit_permissions_on_public_host_key_files, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.2.4", 'description': "Ensure sshd access is limited", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.2.5", 'description': "Ensure sshd Banner is configured", 'function': audit_sshd_config_option, 'kwargs': {'parameter': "banner", 'expected_value': "/etc/issue.net"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.2.6", 'description': "Ensure sshd Ciphers are configure", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.2.7", 'description': "Ensure sshd ClientAliveInterval and ClientAliveCountMax are configured", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.2.7a", 'description': "Ensure sshd ClientAliveInterval is 900 or less", 'function': audit_sshd_config_option, 'kwargs': {'parameter': "clientaliveinterval", 'expected_value': "900", 'comparison': "le"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.2.7b", 'description': "Ensure sshd ClientAliveCountMax is 0", 'function': audit_sshd_config_option, 'kwargs': {'parameter': "clientalivecountmax", 'expected_value': "0"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.2.8", 'description': "Ensure sshd DisableForwarding is enabled", 'function': audit_sshd_config_option, 'kwargs': {'parameter': "disableforwarding", 'expected_value': "yes"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.2.9", 'description': "Ensure sshd GSSAPIAuthentication is disabledenabled", 'function': audit_sshd_config_option, 'kwargs': {'parameter': "gssapiauthentication", 'expected_value': "no"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.2.10", 'description': "Ensure sshd HostbasedAuthentication is disabled", 'function': audit_sshd_config_option, 'kwargs': {'parameter': "hostbasedauthentication", 'expected_value': "no"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.2.11", 'description': "Ensure sshd IgnoreRhosts is enabled", 'function': audit_sshd_config_option, 'kwargs': {'parameter': "ignorerhosts", 'expected_value': "yes"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.2.12", 'description': "Ensure sshd KexAlgorithms is configured", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.2.13", 'description': "Ensure sshd LoginGraceTime is configured", 'function': audit_sshd_config_option, 'kwargs': {'parameter': "logingracetime", 'expected_value': "60", 'comparison': "le"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.2.14", 'description': "Ensure sshd LogLevel is appropriate", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.2.15", 'description': "Ensure sshd MACs are configured", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.2.16", 'description': "Ensure sshd MaxAuthTries is configured", 'function': audit_sshd_config_option, 'kwargs': {'parameter': "maxauthtries", 'expected_value': "4", 'comparison': "le"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.2.17", 'description': "Ensure sshd MaxSessions is configured", 'function': audit_sshd_config_option, 'kwargs': {'parameter': "maxsessions", 'expected_value': "10", 'comparison': "le"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.2.18", 'description': "Ensure sshd MaxStartups is configured", 'function': audit_sshd_config_option, 'kwargs': {'parameter': "maxstartups", 'expected_value': "10:30:60"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.2.19", 'description': "Ensure sshd PermitEmptyPasswords is disabled", 'function': audit_sshd_config_option, 'kwargs': {'parameter': "permitemptypasswords", 'expected_value': "no"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.2.20", 'description': "Ensure sshd PermitRootLogin is disabled", 'function': audit_sshd_config_option, 'kwargs': {'parameter': "permitrootlogin", 'expected_value': "no"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.2.21", 'description': "Ensure sshd PermitUserEnvironment is disabled", 'function': audit_sshd_config_option, 'kwargs': {'parameter': "permituserenvironment", 'expected_value': "no"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.2.22", 'description': "Ensure sshd UsePAM is enabled", 'function': audit_sshd_config_option, 'kwargs': {'parameter': "usepam", 'expected_value': "yes"}, 'levels': {'server': 1, 'workstation': 1}},
-            ##
-            {'_id': "4.3", 'description': "Configure privilege escalation", 'type': "header"},
-            {'_id': "4.3.1", 'description': "Ensure sudo is installed", 'function': audit_package_is_installed, 'kwargs': {'package': "sudo"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.3.2", 'description': "Ensure sudo commands use pty", 'function': audit_sudo_commands_use_pty, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.3.3", 'description': "Ensure sudo log file exists", 'function': audit_sudo_log_exists, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.3.4", 'description': "Ensure users must provide password for escalation", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.3.5", 'description': "Ensure re-authentication for privilege escalation is not disabled globally", 'function': None},
-            {'_id': "4.3.6", 'description': "Ensure sudo authentication timeout is configured correctly", 'function': None},
-            {'_id': "4.3.7", 'description': "Ensure access to the su command is restricted", 'function': None},
-            ##
-            {'_id': "4.4", 'description': "Configure Pluggable Authentication Modules", 'type': "header"},
-            {'_id': "4.4.1", 'description': "Configure PAM software packages", 'type': "header"},
-            {'_id': "4.4.1.1", 'description': "Ensure latest version of pam is installed", 'function': None},
-            {'_id': "4.4.1.2", 'description': "Ensure libpwquality is istalled installed", 'function': audit_package_is_installed, 'kwargs': {'package': "libpwquality"}, 'levels': {}},
-            ##
-            {'_id': "4.4.2", 'description': "Configure pluggable module arguments", 'type': "header"},
-            {'_id': "4.4.2.1", 'description': "Configure pam_faillock module", 'type': "header"},
-            {'_id': "4.4.2.1.1", 'description': "Ensure pam_faillock module is enabled", 'function': None},
-            {'_id': "4.4.2.1.2", 'description': "Ensure password failed attempts lockout is configured", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.4.2.1.3", 'description': "Ensure password unlock time is configured", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.4.2.1.4", 'description': "Ensure password failed attempts lockout includes root account", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            ##
-            {'_id': "4.4.2.2", 'description': "Configure pam_pwquality module", 'type': "header"},
-            {'_id': "4.4.2.2.1", 'description': "Ensure pam_pwquality module is enabled", 'function': None},
-            {'_id': "4.4.2.2.2", 'description': "Ensure password number of changed characters is configured", 'function': None},
-            {'_id': "4.4.2.2.3", 'description': "Ensure password length is configured", 'function': None},
-            {'_id': "4.4.2.2.4", 'description': "Ensure password complexity is configured", 'type': 'manual'},
-            {'_id': "4.4.2.2.5", 'description': "Ensure password same consecutive characters is configured", 'function': None},
-            {'_id': "4.4.2.2.6", 'description': "Ensure password maximum sequential characters is configured", 'function': None},
-            {'_id': "4.4.2.2.7", 'description': "Ensure password dictionary check is enabled", 'function': None},
-            ##
-            {'_id': "4.4.2.3", 'description': "Configure pam_pwhistory module", 'type': "header"},
-            {'_id': "4.4.2.3.1", 'description': "Ensure pam_pwhistory module is enabled", 'function': None},
-            {'_id': "4.4.2.3.2", 'description': "Ensure password history remember is configured", 'function': None},
-            {'_id': "4.4.2.3.3", 'description': "Ensure password history is enforced for the root user", 'function': None},
-            {'_id': "4.4.2.3.4", 'description': "Ensure pam_pwhistory includes use_authtok", 'function': None},
-            ##
-            {'_id': "4.4.2.4", 'description': "Configure pam_unix module", 'type': "header"},
-            {'_id': "4.4.2.4.1", 'description': "Ensure pam_unix does not include nullok", 'function': None},
-            {'_id': "4.4.2.4.2", 'description': "Ensure pam_unix does not include remember", 'function': None},
-            {'_id': "4.4.2.4.3", 'description': "Ensure pam_unix includes a strong password hashing algorithm", 'function': None},
-            {'_id': "4.4.2.4.4", 'description': "Ensure pam_unix includes use_authtok", 'function': None},
-            ##
-            {'_id': "4.5", 'description': "User Accounts and Environment", 'type': "header"},
-            {'_id': "4.5.1", 'description': "Configure shadow password suite parameters", 'type': "header"},
-            {'_id': "4.5.1.1", 'description': "Ensure strong password hashing algorithm is configured", 'function': audit_password_hashing_algorithm, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.5.1.2", 'description': "Ensure password expiration is 365 days or less", 'function': audit_password_expiration_max_days_is_configured, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.5.1.3", 'description': "Ensure password expiration warning days is 7 or more", 'function': audit_password_expiration_warning_is_configured, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.5.1.4", 'description': "Ensure inactive password lock is 30 days or less", 'function': audit_password_inactive_lock_is_configured, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.5.1.5", 'description': "Ensure all users last password change date is in the past", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            ##
-            {'_id': "4.5.2", 'description': "Configure root and system accounts and environment", 'type': "header"},
-            {'_id': "4.5.2.1", 'description': "Ensure default group for the root account is GID 0", 'function': audit_default_group_for_root, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.5.2.2", 'description': "Ensure root user umask is configured", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.5.2.3", 'description': "Ensure system accounts are secured", 'function': audit_system_accounts_are_secured, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.5.2.4", 'description': "Ensure root password is set", 'function': None},
-            ##
-            {'_id': "4.5.3", 'description': "Configure user default environment", 'type': "header"},
-            {'_id': "4.5.3.1", 'description': "Ensure nologin is not listed in /etc/shells", 'function': None},
-            {'_id': "4.5.3.2", 'description': "Ensure default user shell timeout is configured", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "4.5.3.3", 'description': "Ensure default user umask is configured", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            ##
-            {'_id': "5", 'description': "Logging and Auditing", 'type': "header"},
-            {'_id': "5.1", 'description': "Configure Logging", 'type': "header"},
-            {'_id': "5.1.1", 'description': "Configure rsyslog", 'type': "header"},
-            {'_id': "5.1.1.1", 'description': "Ensure rsyslog is installed", 'function': audit_package_is_installed, 'kwargs': {'package': "rsyslog"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "5.1.1.2", 'description': "Ensure rsyslog service is enabled", 'function': audit_service_is_enabled_and_is_active, 'kwargs': {'service': 'rsyslog'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "5.1.1.3", 'description': "Ensure journald is configured to send logs to rsyslog", 'function': audit_journald_configured_to_send_logs_to_rsyslog, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "5.1.1.4", 'description': "Ensure rsyslog default file permissions are configured", 'function': audit_rsyslog_default_file_permission_is_configured, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "5.1.1.5", 'description': "Ensure logging is configured", 'type': 'manual'},
-            {'_id': "5.1.1.6", 'description': "Ensure rsyslog is configured to send logs to a remote log host", 'function': audit_rsyslog_sends_logs_to_a_remote_log_host, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "5.1.1.7", 'description': "Ensure rsyslog is not configured to receive logs from a remote client", 'function': None},
-            ##
-            {'_id': "5.1.2", 'description': "Configure journald", 'type': "header"},
-            {'_id': "5.1.2.1", 'description': "Ensure journald is configured to send logs to a remote log host", 'type': "header"},
-            {'_id': "5.1.2.1.1", 'description': 'Ensure systemd-journal-remote is installed', 'type': 'manual'},
-            {'_id': "5.1.2.1.2", 'description': 'Ensure systemd-journal-remote is configured', 'type': 'manual'},
-            {'_id': "5.1.2.1.3", 'description': 'Ensure systemd-journal-remote is enabled', 'type': 'manual'},
-            {'_id': "5.1.2.1.4", 'description': "Ensure journald is not configured to receive logs from a remote client", 'function': None},
-            ##
-            {'_id': "5.1.2.2", 'description': "Ensure journald service is enabled", 'function': None},
-            {'_id': "5.1.2.3", 'description': "Ensure journald is configured to compress large log files", 'function': audit_journald_configured_to_compress_large_logs, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "5.1.2.4", 'description': "Ensure journald is configured to write logfiles to persistent disk", 'function': audit_journald_configured_to_write_logfiles_to_disk, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "5.1.2.5", 'description': "Ensure journald is not configured to send logs to rsyslog", 'function': None},
-            {'_id': "5.1.2.6", 'description': "Ensure journald log rotation is configured per site policy", 'type': 'manual'},
-            ##
-            {'_id': "5.1.3", 'description': "Ensure logrotate is configured", 'function': None},
-            {'_id': "5.1.4", 'description': "Ensure all logfiles have appropriate access configured", 'function': None},
-            ##
-            {'_id': "5.2", 'description': "Configure System Accounting", 'type': "header"},
-            {'_id': "5.2.1", 'description': "Ensure auditing is enabled", 'type': "header"},
-            {'_id': "5.2.1.1", 'description': "Ensure audit is installed", 'function': audit_package_is_installed, 'kwargs': {'package': 'audit'}, 'levels': {'server': 2, 'workstation': 2}},
-            {'_id': "5.2.1.2", 'description': "Ensure auditing for processes that start prior to auditd is enabled", 'function': audit_auditing_for_processes_prior_to_start_is_enabled, 'levels': {'server': 2, 'workstation': 2}},
-            {'_id': "5.2.1.3", 'description': "Ensure audit_backlog_limit is sufficient", 'function': None, 'levels': {'server': 2, 'workstation': 2}},
-            {'_id': "5.2.1.4", 'description': "Ensure auditd service is enabled", 'function': audit_service_is_enabled_and_is_active, 'kwargs': {'service': "auditd"}, 'levels': {'server': 2, 'workstation': 2}},
-            ##
-            {'_id': "5.2.2", 'description': "Configure Data Retention", 'type': "header"},
-            {'_id': "5.2.2.1", 'description': "Ensure audit log storage size is configured", 'function': audit_audit_log_size_is_configured, 'levels': {'server': 2, 'workstation': 2}},
-            {'_id': "5.2.2.2", 'description': "Ensure audit logs are not automatically deleted", 'function': audit_audit_logs_not_automatically_deleted, 'levels': {'server': 2, 'workstation': 2}},
-            {'_id': "5.2.2.3", 'description': "Ensure system is disabled when audit logs are full", 'function': audit_system_is_disabled_when_audit_logs_are_full, 'levels': {'server': 2, 'workstation': 2}},
-            {'_id': "5.2.2.4", 'description': "Ensure system warns when audit logs are low on space", 'function': None},
-            ##
-            {'_id': "5.2.3", 'description': "Configure auditd rules", 'type': "header"},
-            {'_id': "5.2.3.1", 'description': 'Ensure changes to system administration scope (sudoers) is collected', 'function': audit_events_for_changes_to_sysadmin_scope_are_collected, 'levels': {'server': 2, 'workstation': 2}},
-            {'_id': "5.2.3.2", 'description': "Ensure actions as another user are always logged", 'function': audit_events_for_system_administrator_commands_are_collected, 'levels': {'server': 2, 'workstation': 2}},
-            {'_id': "5.2.3.3", 'description': "Ensure events that modify the sudo log file are collected", 'function': None},
-            {'_id': "5.2.3.4", 'description': "Ensure events that modify date and time information are collected", 'function': audit_events_that_modify_datetime_are_collected, 'levels': {'server': 2, 'workstation': 2}},
-            {'_id': "5.2.3.5", 'description': "Ensure events that modify the system's network environment are collected", 'function': audit_events_that_modify_network_environment_are_collected, 'levels': {'server': 2, 'workstation': 2}},
-            {'_id': "5.2.3.6", 'description': "Ensure use of privileged commands are collected", 'function': None},
-            {'_id': "5.2.3.7", 'description': "Ensure unsuccessful file access attempts are collected", 'function': audit_events_for_unsuccessful_file_access_attempts_are_collected, 'levels': {'server': 2, 'workstation': 2}},
-            {'_id': "5.2.3.8", 'description': "Ensure events that modify user/group information are collected", 'function': audit_events_that_modify_usergroup_info_are_collected, 'levels': {'server': 2, 'workstation': 2}},
-            {'_id': "5.2.3.9", 'description': "Ensure discretionary access control permission modification events are collected", 'function': audit_events_for_discretionary_access_control_changes_are_collected, 'levels': {'server': 2, 'workstation': 2}},
-            {'_id': "5.2.3.10", 'description': "Ensure successful file system mounts are collected", 'function': audit_events_for_successful_file_system_mounts_are_collected, 'levels': {'server': 2, 'workstation': 2}},
-            {'_id': "5.2.3.11", 'description': "Ensure session initiation information is collected", 'function': audit_events_for_discretionary_access_control_changes_are_collected, 'levels': {'server': 2, 'workstation': 2}},
-            {'_id': "5.2.3.12", 'description': "Ensure login and logout events are collected", 'function': audit_events_for_login_and_logout_are_collected, 'levels': {'server': 2, 'workstation': 2}},
-            {'_id': "5.2.3.13", 'description': "Ensure file deletion events by users are collected", 'function': audit_events_for_file_deletion_by_users_are_collected, 'levels': {'server': 2, 'workstation': 2}},
-            {'_id': "5.2.3.14", 'description': "Ensure events that modify the system's Mandatory Access Controls are collected", 'function': audit_events_that_modify_mandatory_access_controls_are_collected, 'levels': {'server': 2, 'workstation': 2}},
-            {'_id': "5.2.3.15", 'description': "Ensure successful and unsuccessful attempts to use the chcon command are recorded", 'function': None},
-            {'_id': "5.2.3.16", 'description': "Ensure successful and unsuccessful attempts to use the setfacl command are recorded", 'function': None},
-            {'_id': "5.2.3.17", 'description': "Ensure successful and unsuccessful attempts to use the chacl command are recorded", 'function': None},
-            {'_id': "5.2.3.18", 'description': "Ensure successful and unsuccessful attempts to use the usermod command are recorded", 'function': None},
-            {'_id': "5.2.3.19", 'description': "Ensure kernel module loading unloading and modification is collected", 'function': audit_events_for_kernel_module_loading_and_unloading_are_collected, 'levels': {'server': 2, 'workstation': 2}},
-            {'_id': "5.2.3.20", 'description': "Ensure the audit configuration is immutable", 'function': audit_audit_config_is_immutable, 'levels': {'server': 2, 'workstation': 2}},
-            {'_id': "5.2.3.21", 'description': "Ensure the running and on disk configuration is the same", 'type': 'manual'},
-            ##
-            {'_id': "5.2.4", 'description': "Configure auditd file access", 'type': "header"},
-            {'_id': "5.2.4.1", 'description': "Ensure the audit log directory is 0750 or more restrictive", 'function': None},
-            {'_id': "5.2.4.2", 'description': "Ensure audit log files are mode 0640 or less permissive", 'function': None},
-            {'_id': "5.2.4.3", 'description': "Ensure only authorized users own audit log files", 'function': None},
-            {'_id': "5.2.4.4", 'description': "Ensure only authorized groups are assigned ownership of audit log files", 'function': None},
-            {'_id': "5.2.4.5", 'description': "Ensure audit configuration files are 640 or more restrictive", 'function': None},
-            {'_id': "5.2.4.6", 'description': "Ensure audit configuration files are owned by root", 'function': None},
-            {'_id': "5.2.4.7", 'description': "Ensure audit configuration files belong to group root", 'function': None},
-            {'_id': "5.2.4.8", 'description': "Ensure audit tools are 755 or more restrictive", 'function': None},
-            {'_id': "5.2.4.9", 'description': "Ensure audit tools are owned by root", 'function': None},
-            {'_id': "5.2.4.10", 'description': "Ensure audit tools belong to group root", 'function': None},
-            ##
-            {'_id': "5.3", 'description': "Configure Integrity Checking", 'type': "header"},
-            {'_id': "5.3.1", 'description': "Ensure AIDE is installed", 'function': audit_package_is_installed, 'kwargs': {'package': 'aide'}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "5.3.2", 'description': "Ensure filesystem integrity is regularly checked", 'function': audit_filesystem_integrity_regularly_checked, 'levels': {'server': 1, 'workstation': 1}},
-            ##
-            {'_id': "6", 'description': "System Maintenance", 'type': "header"},
-            {'_id': "6.1", 'description': "System File Permissions", 'type': "header"},
-            {'_id': "6.1.1", 'description': "Ensure permissions on /etc/passwd are configured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/passwd", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0644"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "6.1.2", 'description': 'Ensure permissions on /etc/passwd- are configured', 'function': audit_file_permissions, 'kwargs': {'file': "/etc/passwd-", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0644"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "6.1.3", 'description': "Ensure permissions on /etc/group are configured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/group", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0644"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "6.1.4", 'description': 'Ensure permissions on /etc/group- are configured', 'function': audit_file_permissions, 'kwargs': {'file': "/etc/group-", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0644"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "6.1.5", 'description': "Ensure permissions on /etc/shadow are configured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/shadow", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0000"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "6.1.6", 'description': 'Ensure permissions on /etc/shadow- are configured', 'function': audit_file_permissions, 'kwargs': {'file': "/etc/shadow-", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0000"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "6.1.7", 'description': "Ensure permissions on /etc/gshadow are configured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/gshadow", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0000"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "6.1.8", 'description': 'Ensure permissions on /etc/gshadow- are configured', 'function': audit_file_permissions, 'kwargs': {'file': "/etc/gshadow-", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0000"}, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "6.1.9", 'description': "Ensure permissions on /etc/shells are configured", 'function': None},
-            {'_id': "6.1.10", 'description': "Ensure permissions on /etc/security/opasswd are configured", 'function': None},
-            {'_id': "6.1.11", 'description': "Ensure world writable files and directories are secured", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "6.1.12", 'description': "Ensure no unowned or ungrouped files or directories exist", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "6.1.13", 'description': "Ensure SUID and SGID files are reviewed", 'type': 'manual'},
-            {'_id': "6.1.14", 'description': "Audit system file permissions", 'type': 'manual'},
-            ##
-            {'_id': "6.2", 'description': "Local User and Group Settings", 'type': "header"},
-            {'_id': "6.2.1", 'description': "Ensure accounts in /etc/passwd use shadowed passwords", 'function': audit_etc_passwd_accounts_use_shadowed_passwords, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "6.2.2", 'description': "Ensure /etc/shadow password fields are not empty", 'function': audit_etc_shadow_password_fields_are_not_empty, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "6.2.3", 'description': "Ensure all groups in /etc/passwd exist in /etc/group", 'function': audit_etc_passwd_gids_exist_in_etc_group, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "6.2.4", 'description': "Ensure no duplicate UIDs exist", 'function': audit_duplicate_uids, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "6.2.5", 'description': "Ensure no duplicate GIDs exist", 'function': audit_duplicate_gids, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "6.2.6", 'description': "Ensure no duplicate user names exist", 'function': audit_duplicate_user_names, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "6.2.7", 'description': "Ensure no duplicate group names exist", 'function': audit_duplicate_group_names, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "6.2.8", 'description': "Ensure root path integrity", 'function': None},
-            {'_id': "6.2.9", 'description': "Ensure root is the only UID 0 account", 'function': audit_root_is_only_uid_0_account, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "6.2.10", 'description': "Ensure local interactive user home directories are configured", 'function': audit_homedirs_permissions, 'levels': {'server': 1, 'workstation': 1}},
-            {'_id': "6.2.11", 'description': "Ensure local interactive user dot files access is configured", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
-        ],
+        '4.0.0': {
+            '1': {'description': "Initial Setup", 'type': "header"},
+            '1.1': {'description': "Filesystem", 'type': "header"},
+            '1.1.1': {'description': "Configure Filesystem Kernel Modules", 'type': "header"},
+            '1.1.1.1': {'description': "Ensure cramfs kernel module is not available", 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': "cramfs"}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.1.1.2': {'description': "Ensure freevxfs kernel module is not available", 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': "freevxfs"}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.1.1.3': {'description': "Ensure hfs kernel module is not available", 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': "hfs"}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.1.1.4': {'description': "Ensure hfsplus kernel module is not available", 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': "hfsplus"}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.1.1.5': {'description': "Ensure jffs2 kernel module is not available", 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': "jffs2"}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.1.1.6': {'description': "Ensure squashfs kernel module is not available", 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': "squashfs"}, 'levels': {'server': 2, 'workstation': 2}},
+            '1.1.1.7': {'description': "Ensure udf kernel module is not available", 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': "udf"}, 'levels': {'server': 2, 'workstation': 2}},
+            '1.1.1.8': {'description': "Ensure usb-storage kernel module is not available", 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': "usb-storage"}, 'levels': {'server': 1, 'workstation': 2}},
+            '1.1.2': {'description': "Configure Filesystem Partitions", 'type': "header"},
+            '1.1.2.1': {'description': "Configure /tmp", 'type': "header"},
+            '1.1.2.1.1': {'description': "Ensure /tmp is a separate partition", 'function': audit_partition_is_separate, 'kwargs': {'partition': "/tmp"}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.1.2.1.2': {'description': "Ensure nodev option set on /tmp partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nodev", 'partition': "/tmp"}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.1.2.1.3': {'description': "Ensure nosuid option set on /tmp partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nosuid", 'partition': "/tmp"}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.1.2.1.4': {'description': "Ensure noexec option set on /tmp partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "noexec", 'partition': "/tmp"}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.1.2.2': {'description': "Configure /dev/shm", 'type': "header"},
+            '1.1.2.2.1': {'description': "Ensure /dev/shm is a separate partition", 'function': audit_partition_is_separate, 'kwargs': {'partition': "/dev/shm"}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.1.2.2.2': {'description': "Ensure nodev option set on /dev/shm partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nodev", 'partition': "/dev/shm"}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.1.2.2.3': {'description': "Ensure nosuid option set on /dev/shm partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nosuid", 'partition': "/dev/shm"}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.1.2.2.4': {'description': "Ensure noexec option set on /dev/shm partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "noexec", 'partition': "/dev/shm"}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.1.2.3': {'description': "Configure /home", 'type': "header"},
+            '1.1.2.3.1': {'description': "Ensure separate partition exists for /home", 'function': audit_partition_is_separate, 'kwargs': {'partition': "/home"}, 'levels': {'server': 2, 'workstation': 2}},
+            '1.1.2.3.2': {'description': "Ensure nodev option set on /home partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nodev", 'partition': "/home"}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.1.2.3.3': {'description': "Ensure nosuid option set on /home partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nosuid", 'partition': "/home"}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.1.2.4': {'description': "Configure /var", 'type': "header"},
+            '1.1.2.4.1': {'description': "Ensure separate partition exists for /var", 'function': audit_partition_is_separate, 'kwargs': {'partition': "/var"}, 'levels': {'server': 2, 'workstation': 2}},
+            '1.1.2.4.2': {'description': "Ensure nodev option set on /var partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nodev", 'partition': "/var"}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.1.2.4.3': {'description': "Ensure nosuid option set on /var partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nosuid", 'partition': "/var"}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.1.2.5': {'description': "Configure /var/tmp", 'type': "header"},
+            '1.1.2.5.1': {'description': "Ensure separate partition exists for /var/tmp", 'function': audit_partition_is_separate, 'kwargs': {'partition': "/var/tmp"}, 'levels': {'server': 2, 'workstation': 2}},
+            '1.1.2.5.2': {'description': "Ensure nodev option set on /var/tmp partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nodev", 'partition': "/var/tmp"}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.1.2.5.3': {'description': "Ensure nosuid option set on /var/tmp partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nosuid", 'partition': "/var/tmp"}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.1.2.5.4': {'description': "Ensure noexec option set on /var/tmp partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "noexec", 'partition': "/var/tmp"}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.1.2.6': {'description': "Configure /var/log", 'type': "header"},
+            '1.1.2.6.1': {'description': "Ensure separate partition exists for /var/log", 'function': audit_partition_is_separate, 'kwargs': {'partition': "/var/log"}, 'levels': {'server': 2, 'workstation': 2}},
+            '1.1.2.6.2': {'description': "Ensure nodev option set on /var/log partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nodev", 'partition': "/var/log"}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.1.2.6.3': {'description': "Ensure nosuid option set on /var/log partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nosuid", 'partition': "/var/log"}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.1.2.6.4': {'description': "Ensure noexec option set on /var/log partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "noexec", 'partition': "/var/log"}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.1.2.7': {'description': "Configure /var/log/audit", 'type': "header"},
+            '1.1.2.7.1': {'description': "Ensure separate partition exists for /var/log/audit", 'function': audit_partition_is_separate, 'kwargs': {'partition': "/var/log/audit"}, 'levels': {'server': 2, 'workstation': 2}},
+            '1.1.2.7.2': {'description': "Ensure nodev option set on /var/log/audit partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nodev", 'partition': "/var/log/audit"}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.1.2.7.3': {'description': "Ensure nosuid option set on /var/log/audit partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "nosuid", 'partition': "/var/log/audit"}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.1.2.7.4': {'description': "Ensure noexec option set on /var/log/audit partition", 'function': audit_partition_option_is_set, 'kwargs': {'option': "noexec", 'partition': "/var/log/audit"}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.2': {'description': "Configure Software and Patch Management", 'type': "header"},
+            '1.2.1': {'description': "Ensure GPG keys are configured", 'type': "manual", 'levels': {'server': 1, 'workstation': 1}},
+            '1.2.2': {'description': "Ensure gpgcheck is globally activated", 'function': audit_gpgcheck_is_globally_activated, 'levels': {'server': 1, 'workstation': 1}},
+            '1.2.3': {'description': "Ensure repo_gpgcheck is globally activated", 'function': audit_repo_gpgcheck_is_globally_activated, 'levels': {'server': 2, 'workstation': 2}},
+            '1.2.4': {'description': "Ensure package manager repositories are configured", 'type': "manual", 'levels': {'server': 1, 'workstation': 1}},
+            '1.2.4': {'description': "Ensure updates, patches, and additional security software are installed", 'function': audit_yum_updates, 'levels': {'server': 1, 'workstation': 1}},
+            '1.3': {'description': "Configure Secure Boot Settings", 'type': "header"},
+            '1.3.1': {'description': "Ensure bootloader password is set", 'function': audit_bootloader_password_is_set, 'levels': {'server': 1, 'workstation': 1}},
+            '1.3.2': {'description': "Ensure permissions on bootloader config are configured", 'function': audit_permissions_on_bootloader_files, 'kwargs': {'file': "/boot/grub2/grub.cfg", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0600"}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.3.3': {'description': "Ensure authentication required for single user mode", 'function': audit_auth_for_single_user_mode, 'levels': {'server': 1, 'workstation': 1}},
+            '1.4': {'description': "Configure Additional Process Hardening", 'type': "header"},
+            '1.4.1': {'description': "Ensure address space layout randomization (ASLR) is enabled", 'function': audit_sysctl_flags_are_set, 'kwargs': {'flags': ['kernel.randomize_va_space'], 'value': 2}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.4.2': {'description': "Ensure ptrace_scope is restricted", 'function': audit_sysctl_flags_are_set, 'kwargs': {'flags': ['kernel.yama.ptrace_scope'], 'value': 1}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.4.3': {'description': "Ensure core dump backtraces are disabled", 'function': audit_core_dump_backtraces_are_disabled, 'levels': {'server': 1, 'workstation': 1}},
+            '1.4.4': {'description': "Ensure core dump storage is disabled", 'function': audit_core_dump_backtraces_are_disabled, 'levels': {'server': 1, 'workstation': 1}},
+            '1.5': {'description': "Mandatory Access Control", 'type': "header"},
+            '1.5.1': {'description': "Configure SELinux", 'type': "header"},
+            '1.5.1.1': {'description': "Ensure SELinux is installed", 'function': audit_package_is_installed, 'kwargs': {'package': "libselinux"}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.5.1.2': {'description': "Ensure SELinux is not disabled in bootloader configuration", 'function': audit_selinux_not_disabled_in_bootloader_v2, 'levels': {'server': 1, 'workstation': 1}},
+            '1.5.1.3': {'description': "Ensure SELinux policy is configured", 'function': audit_selinux_policy_is_configured, 'levels': {'server': 1, 'workstation': 1}},
+            '1.5.1.4': {'description': "Ensure the SELinux mode is not disabled", 'function': audit_selinux_mode_not_disabled, 'levels': {'server': 1, 'workstation': 1}},
+            '1.5.1.5': {'description': "Ensure the SELinux mode is enforcing", 'function': audit_selinux_mode_is_enforcing, 'levels': {'server': 2, 'workstation': 2}},
+            '1.5.1.6': {'description': "Ensure no unconfined services exist", 'function': audit_no_unconfined_services, 'levels': {'server': 1, 'workstation': 1}},
+            '1.5.1.7': {'description': "Ensure the MCS Translation Service (mcstrans) is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': "mcstrans"}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.5.1.8': {'description': "Ensure SETroubleshoot is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': "setroubleshoot"}, 'levels': {'server': 1, 'workstation': None}},
+            '1.6': {'description': "Command Line Warning Banners", 'type': "header"},
+            '1.6.1': {'description': "Ensure message of the day is configured properly", 'function': audit_login_banner_content_is_appropriate, 'kwargs': {'file': "/etc/motd"}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.6.2': {'description': "Ensure local login warning banner is configured properly", 'function': audit_login_banner_content_is_appropriate, 'kwargs': {'file': "/etc/issue"}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.6.3': {'description': "Ensure remote login warning banner is configured properly", 'function': audit_login_banner_content_is_appropriate, 'kwargs': {'file': "/etc/issue.net"}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.6.4': {'description': "Ensure access to /etc/motd is configured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/motd", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0644"}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.6.5': {'description': "Ensure access to /etc/issue is configured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/issue", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0644"}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.6.6': {'description': "Ensure access to /etc/issue.net is configured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/issue.net", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0644"}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.7': {'description': "Configure Gnome Display Manager", 'type': "header"},
+            '1.7.1': {'description': "Ensure GNOME Display Manager is removed", 'function': audit_package_not_installed, 'kwargs': {'package': "gdm"}, 'levels': {'server': 2, 'workstation': None}},
+            '1.7.2': {'description': "Ensure GDM login banner is configured", 'function': audit_gdm_login_banner_configured, 'levels': {'server': 1, 'workstation': 1}},
+            '1.7.3': {'description': "Ensure GDM disable-user-list option is enabled", 'function': audit_gsettings_option, 'kwargs': {'option': "org.gnome.login-screen disable-user-list", 'comparisons': {'eq': "true"}}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.7.4': {'description': "Ensure GDM screen locks when the user is idle", 'function': audit_gdm_screen_locks, 'levels': {'server': 1, 'workstation': 1}},
+            '1.7.5': {'description': "Ensure GDM screen locks cannot be overridden", 'function': audit_gsettings_options_are_protected, 'kwargs': {'options': ["org.gnome.desktop.session idle-delay", "org.gnome.desktop.screensaver lock-delay"]}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.7.6': {'description': "Ensure GDM automatic mounting of removable media is disabled", 'function': audit_gdm_automount_is_disabled, 'levels': {'server': 1, 'workstation': 2}},
+            '1.7.7': {'description': "Ensure GDM disabling automatic mounting of removable media is not overridden", 'function': audit_gsettings_options_are_protected, 'kwargs': {'options': ["org.gnome.desktop.media-handling automount", "org.gnome.desktop.media-handling automount-open"]}, 'levels': {'server': 1, 'workstation': 2}},
+            '1.7.8': {'description': "Ensure GDM autorun-never is enabled", audit_gsettings_option, 'kwargs': {'option': "org.gnome.desktop.media-handling autorun-never", 'comparisons': {'eq': "true"}}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.7.9': {'description': "Ensure GDM autorun-never is not overridden", 'function': audit_gsettings_options_are_protected, 'kwargs': {'options': ["org.gnome.desktop.media-handling autorun-never"]}, 'levels': {'server': 1, 'workstation': 1}},
+            '1.7.10': {'description': "Ensure XDCMP is not enabled", 'function': audit_xdmcp_not_enabled, 'levels': {'server': 1, 'workstation': 1}},
+            ## TODO: Continue from here
+            '2': {'description': "Services", 'type': "header"},
+            '2.1': {'description': "Configure Time Synchronization", 'type': "header"},
+            '2.1.1': {'description': "Ensure time synchronisation is in use", 'function': audit_package_is_installed, 'kwargs': {'package': "chrony"}, 'levels': {'server': 1, 'workstation': 1}},
+            '2.1.2': {'description': "Ensure chrony is configured", 'function': audit_chrony_is_configured, 'levels': {'server': 1, 'workstation': 1}},
+            '2.1.3': {'description': "Ensure chrony is not run as the root user", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
+            '2.2': {'description': "Configure Special Purpose Services", 'type': "header"},
+            '2.2.1': {'description': "Ensure autofs services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 2}},
+            '2.2.2': {'description': "Ensure avahi services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 2}},
+            '2.2.3': {'description': "Ensure dhcp services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
+            '2.2.4': {'description': "Ensure dns services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
+            '2.2.5': {'description': "Ensure dnsmasq services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
+            '2.2.6': {'description': "Ensure samba services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
+            '2.2.7': {'description': "Ensure ftp services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
+            '2.2.8': {'description': "Ensure message access services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
+            '2.2.9': {'description': "Ensure network file system services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
+            '2.2.10': {'description': "Ensure nis server services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
+            '2.2.11': {'description': "Ensure print server services are not in use", 'function': None, 'levels': {'server': 1}},
+            '2.2.12': {'description': "Ensure rpcbind services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
+            '2.2.13': {'description': "Ensure rsync  services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
+            '2.2.14': {'description': "Ensure snmp services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
+            '2.2.15': {'description': "Ensure telnet services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
+            '2.2.16': {'description': "Ensure tftp services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
+            '2.2.17': {'description': "Ensure web proxy server services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
+            '2.2.18': {'description': "Ensure web server services services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
+            '2.2.19': {'description': "Ensure xinetd services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
+            '2.2.20': {'description': "Ensure X window server services are not in use", 'function': None, 'levels': {'server': 2}},
+            '2.2.21': {'description': "Ensure mail transfer agents are configured for local-only mode", 'function': audit_mta_is_localhost_only, 'levels': {'server': 1, 'workstation': 1}},
+            '2.2.21': {'description': "Ensure only approved services are listening on a network interface", 'type': "manual", 'levels': {'server': 1, 'workstation': 1}},
+            '2.3': {'description': "Configure Service Clients", 'type': "header"},
+            '2.3.1': {'description': "Ensure ftp client is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': "ftp"}, 'levels': {'server': 1, 'workstation': 1}},
+            '2.3.2': {'description': "Ensure ldap client is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': "openldap-clients"}, 'levels': {'server': 2, 'workstation': 2}},
+            '2.3.3': {'description': "Ensure nis client is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': "ypbind"}, 'levels': {'server': 1, 'workstation': 1}},
+            '2.3.4': {'description': "Ensure telnet client is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': "telnet"}, 'levels': {'server': 1, 'workstation': 1}},
+            '2.3.5': {'description': "Ensure tftp client is not installed", 'function': audit_package_not_installed, 'kwargs': {'package': "tftp"}, 'levels': {'server': 1, 'workstation': 1}},
+            '3.1': {'description': "Network", 'type': "header"},
+            '3.1': {'description': "Configure Network Devices", 'type': "header"},
+            '3.1.1': {'description': "Ensure IPv6 status is identified", 'type': "manual", 'levels': {'server': 1, 'workstation': 1}},
+            '3.1.2': {'description': "Ensure wireless interfaces are disabled", 'function': audit_package_not_installed, 'kwargs': {'package': "wireless-tools"}, 'levels': {'server': 1}},
+            '3.1.2': {'description': "Ensure bluetooth services are not in use", 'function': None, 'levels': {'server': 1, 'workstation': 2}},
+            '3.2': {'description': "Configure Network Kernel Modules", 'type': "header"},
+            '3.2.1': {'description': "Ensure dccp kernel module is not available", 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': "dccp"}, 'levels': {'server': 2, 'workstation': 2}},
+            '3.2.2': {'description': "Ensure tipc kernel module is not available", 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': "tipc"}, 'levels': {'server': 2, 'workstation': 2}},
+            '3.2.3': {'description': "Ensure rds kernel module is not available", 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': "rds"}, 'levels': {'server': 2, 'workstation': 2}},
+            '3.2.4': {'description': "Ensure sctp kernel module is not available", 'function': audit_kernel_module_is_disabled, 'kwargs': {'module': "sctp"}, 'levels': {'server': 2, 'workstation': 2}},
+            '3.3': {'description': "Configure Network Kernel Parameters", 'type': "header"},
+            '3.3.1': {'description': "Ensure IP forwarding is disabled", 'function': audit_sysctl_flags_are_set, 'kwargs': {'flags': ['net.ipv4.ip_forward', 'net.ipv6.conf.all.forwarding', 'net.ipv6.conf.default.forwarding'], 'value': 0}, 'levels': {'server': 1, 'workstation': 1}},
+            '3.3.2': {'description': "Ensure packet redirect sending is disabled", 'function': audit_sysctl_flags_are_set, 'kwargs': {'flags': ['net.ipv4.conf.all.send_redirects', 'net.ipv4.conf.default.send_redirects'], 'value': 0}, 'levels': {'server': 1, 'workstation': 1}},
+            '3.3.3': {'description': "Ensure bogus icmp responses are ignored", 'function': audit_sysctl_flags_are_set, 'kwargs': {'flags': ['net.ipv4.icmp_ignore_bogus_error_responses'], 'value': 1}, 'levels': {'server': 1, 'workstation': 1}},
+            '3.3.4': {'description': "Ensure broadcast icmp requests are ignored", 'function': audit_sysctl_flags_are_set, 'kwargs': {'flags': ['net.ipv4.icmp_echo_ignore_broadcasts'], 'value': 1}, 'levels': {'server': 1, 'workstation': 1}},
+            '3.3.5': {'description': "Ensure icmp redirects are not accepted", 'function': audit_sysctl_flags_are_set, 'kwargs': {'flags': ['net.ipv4.conf.all.accept_redirects', 'net.ipv4.conf.default.accept_redirects', 'net.ipv6.conf.all.accept_redirects', 'net.ipv6.conf.default.accept_redirects'], 'value': 0}, 'levels': {'server': 1, 'workstation': 1}},
+            '3.3.6': {'description': "Ensure secure icmp redirects are not accepted", 'function': audit_sysctl_flags_are_set, 'kwargs': {'flags': ['net.ipv4.conf.all.secure_redirects', 'net.ipv4.conf.default.secure_redirects'], 'value': 0}, 'levels': {'server': 1, 'workstation': 1}},
+            '3.3.7': {'description': "Ensure Reverse Path Filtering is enabled", 'function': audit_sysctl_flags_are_set, 'kwargs': {'flags': ['net.ipv4.conf.all.rp_filter', 'net.ipv4.conf.default.rp_filter'], 'value': 1}, 'levels': {'server': 1, 'workstation': 1}},
+            '3.3.8': {'description': "Ensure source routed packets are not accepted", 'function': audit_sysctl_flags_are_set, 'kwargs': {'flags': ['net.ipv4.conf.all.accept_source_route', 'net.ipv4.conf.default.accept_source_route', 'net.ipv6.conf.all.accept_source_route', 'net.ipv6.conf.default.accept_source_route'], 'value': 0}, 'levels': {'server': 1, 'workstation': 1}},
+            '3.3.9': {'description': "Ensure suspicious packets are logged", 'function': audit_sysctl_flags_are_set, 'kwargs': {'flags': ['net.ipv4.conf.all.log_martians', 'net.ipv4.conf.default.log_martians'], 'value': 1}, 'levels': {'server': 1, 'workstation': 1}},
+            '3.3.10': {'description': "Ensure TCP SYN Cookies is enabled", 'function': audit_sysctl_flags_are_set, 'kwargs': {'flags': ['net.ipv4.tcp_syncookies'], 'value': 1}, 'levels': {'server': 1, 'workstation': 1}},
+            '3.3.11': {'description': "Ensure IPv6 router advertisments are not accepted", 'function': audit_sysctl_flags_are_set, 'kwargs': {'flags': ['net.ipv6.conf.all.accept_ra', 'net.ipv6.conf.default.accept_ra'], 'value': 0}, 'levels': {'server': 1, 'workstation': 1}},
+            '3.4': {'description': "Configure Host Based Firewall", 'type': "header"},
+            '3.4.1': {'description': "Configure firewall utility", 'type': "header"},
+            '3.4.1.1': {'description': "Ensure iptables installed", 'function': audit_package_is_installed, 'kwargs': {'package': "firewalld"}, 'levels': {'server': 1, 'workstation': 1}},
+            '3.4.1.2': {'description': "Ensure a single firewall configuration utility is in place", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
+            '3.4.2': {'description': "Configure firewalld", 'type': "header"},
+            '3.4.1.1': {'description': "Ensure firewalld is installed", 'function': audit_package_is_installed, 'kwargs': {'package': "firewalld"}, 'levels': {'server': 1, 'workstation': 1}},
+            '3.4.1.2': {'description': "Ensure firewalld service is enabled and running", 'function': audit_service_is_enabled_and_is_active, 'kwargs': {'service': "firewalld"}, 'levels': {'server': 1, 'workstation': 1}},
+            '3.4.1.3': {'description': "Ensure firewalld drops unnecessary services and ports", 'levels': {'server': 1, 'workstation': 1}, 'type': "manual"},
+            '3.4.1.4': {'description': "Ensure network interfaces are assigned to appropriate zone", 'levels': {'server': 1, 'workstation': 1}, 'type': "manual"},
+            '3.4.3': {'description': "Configure nftables", 'type': "header"},
+            '3.4.3.1': {'description': "Ensure nftables is installed", 'function': audit_package_is_installed, 'kwargs': {'package': "nftables"}, 'levels': {'server': 1, 'workstation': 1}},
+            '3.4.3.2': {'description': "Ensure iptables are flushed with nftables", 'function': audit_iptables_is_flushed, 'levels': {'server': 1, 'workstation': 1}},
+            '3.4.3.3': {'description': "Ensure an nftables table exists", 'function': audit_nftables_table_exists, 'levels': {'server': 1, 'workstation': 1}},
+            '3.4.3.4': {'description': "Ensure nftables base chains exist", 'function': audit_nftables_base_chains_exist, 'levels': {'server': 1, 'workstation': 1}},
+            '3.4.3.5': {'description': "Ensure nftables loopback traffic is configured", 'function': audit_nftables_loopback_is_configured, 'levels': {'server': 1, 'workstation': 1}},
+            '3.4.3.6': {'description': "Ensure nftables outbound and established connections are configured", 'function': audit_nftables_outbound_and_established_connections, 'levels': {'server': 1, 'workstation': 1}},
+            '3.4.3.7': {'description': "Ensure nftables default deny firewall policy", 'function': audit_nftables_default_deny_policy, 'levels': {'server': 1, 'workstation': 1}},
+            '3.4.3.8': {'description': "Ensure nftables service is enabled and active", 'function': audit_service_is_enabled_and_is_active, 'kwargs': {'service': "nftables"}, 'levels': {'server': 1, 'workstation': 1}},
+            '3.4.3.9': {'description': "Ensure nftables rules are permanent", 'function': None, 'kwargs': {'service': "nftables"}, 'levels': {'server': 1, 'workstation': 1}},
+            '3.4.4': {'description': "Configure iptables", 'type': "header"},
+            '3.4.4.1': {'description': "Configure iptables software", 'type': "header"},
+            '3.4.4.1.1': {'description': "Ensure iptables packages are installed", 'function': audit_package_is_installed, 'kwargs': {'package': "iptables-services"}, 'levels': {'server': 1, 'workstation': 1}},
+            '3.4.4.2': {'description': "Configure iptables", 'type': "header"},
+            '3.4.4.2.1': {'description': "Ensure iptables loopback traffic is configured", 'function': audit_iptables_loopback_is_configured, 'kwargs': {'ip_version': "ipv4"}, 'levels': {'server': 1, 'workstation': 1}},
+            '3.4.4.2.2': {'description': "Ensure iptables outbound and established connections are configured", 'function': audit_iptables_outbound_and_established_connections, 'kwargs': {'ip_version': "ipv4"}, 'levels': {'server': 1, 'workstation': 1}},
+            '3.4.4.2.2': {'description': "Ensure iptables rules exist for all open ports", 'levels': {'server': 1, 'workstation': 1}, 'type': "manual"},
+            '3.4.4.2.4': {'description': "Ensure iptables default deny firewall policy", 'function': audit_iptables_default_deny_policy, 'kwargs': {'ip_version': "ipv4"}, 'levels': {'server': 1, 'workstation': 1}},
+            '3.4.4.2.5': {'description': "Ensure iptables rules are saved", 'function': audit_iptables_rules_are_saved, 'kwargs': {'ip_version': "ipv4"}, 'levels': {'server': 1, 'workstation': 1}},
+            '3.4.4.2.6': {'description': "Ensure iptables service is enabled and active", 'function': audit_service_is_enabled_and_is_active, 'kwargs': {'service': "iptables"}, 'levels': {'server': 1, 'workstation': 1}},
+            '3.4.4.3': {'description': "Configure ip6tables", 'type': "header"},
+            '3.4.4.3.1': {'description': "Ensure ip6tables loopback traffic is configured", 'function': audit_iptables_loopback_is_configured, 'kwargs': {'ip_version': "ipv6"}, 'levels': {'server': 1, 'workstation': 1}},
+            '3.4.4.3.2': {'description': "Ensure ip6tables outbound and established connections are configured", 'function': audit_iptables_outbound_and_established_connections, 'kwargs': {'ip_version': "ipv6"}, 'levels': {'server': 1, 'workstation': 1}},
+            '3.4.4.3.2': {'description': "Ensure ip6tables firewall rules exist for all open ports", 'levels': {'server': 1, 'workstation': 1}, 'type': "manual"},
+            '3.4.4.3.4': {'description': "Ensure ip6tables default deny firewall policy", 'function': audit_iptables_default_deny_policy, 'kwargs': {'ip_version': "ipv6"}, 'levels': {'server': 1, 'workstation': 1}},
+            '3.4.4.3.5': {'description': "Ensure ip6tables rules are saved", 'function': audit_iptables_rules_are_saved, 'kwargs': {'ip_version': "ipv6"}, 'levels': {'server': 1, 'workstation': 1}},
+            '3.4.4.3.6': {'description': "Ensure ip6tables is enabled and active", 'function': audit_service_is_enabled_and_is_active, 'kwargs': {'service': "ip6tables"}, 'levels': {'server': 1, 'workstation': 1}},
+            '4': {'description': "Access, Authentication and Authorization", 'type': "header"},
+            '4.1': {'description': "Configure job schedulers", 'type': "header"},
+            '4.1.1': {'description': "Configure cron", 'type': "header"},
+            '4.1.1.1': {'description': "Ensure cron daemon is enabled and active", 'function': audit_service_is_enabled_and_is_active, 'kwargs': {'service': "crond"}, 'levels': {'server': 1, 'workstation': 1}},
+            '4.1.1.2': {'description': "Ensure permissions on /etc/crontab are configured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/crontab", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0600"}, 'levels': {'server': 1, 'workstation': 1}},
+            '4.1.1.3': {'description': "Ensure permissions on /etc/cron.hourly are configured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/cron.hourly", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0700"}, 'levels': {'server': 1, 'workstation': 1}},
+            '4.1.1.4': {'description': "Ensure permissions on /etc/cron.daily are configured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/cron.daily", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0700"}, 'levels': {'server': 1, 'workstation': 1}},
+            '4.1.1.5': {'description': "Ensure permissions on /etc/cron.weekly are configured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/cron.weekly", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0700"}, 'levels': {'server': 1, 'workstation': 1}},
+            '4.1.1.6': {'description': "Ensure permissions on /etc/cron.monthly are configured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/cron.monthly", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0700"}, 'levels': {'server': 1, 'workstation': 1}},
+            '4.1.1.7': {'description': "Ensure permissions on /etc/cron.d are configured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/cron.d", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0700"}, 'levels': {'server': 1, 'workstation': 1}},
+            '4.1.1.8': {'description': "Ensure crontab is restricted to authorized users", 'function': audit_cron_is_restricted_to_authorized_users, 'levels': {'server': 1, 'workstation': 1}},
+            '4.1.2': {'description': "Configure at", 'type': "header"},
+            '4.1.2.1': {'description': "Ensure at is restricted to authorized users", 'function': audit_at_is_restricted_to_authorized_users, 'levels': {'server': 1, 'workstation': 1}},
+            '4.2': {'description': "Configure SSH Server", 'type': "header"},
+            '4.2.1': {'description': "Ensure permissions on /etc/ssh/sshd_config are configured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/ssh/sshd_config", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0600"}, 'levels': {'server': 1, 'workstation': 1}},
+            '4.2.2': {'description': "Ensure permissions on SSH private host key files are configured", 'function': audit_permissions_on_private_host_key_files, 'levels': {'server': 1, 'workstation': 1}},
+            '4.2.3': {'description': "Ensure permissions on SSH public host key files are configures", 'function': audit_permissions_on_public_host_key_files, 'levels': {'server': 1, 'workstation': 1}},
+            '4.2.4': {'description': "Ensure sshd access is limited", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
+            '4.2.5': {'description': "Ensure sshd Banner is configured", 'function': audit_sshd_config_option, 'kwargs': {'parameter': "banner", 'expected_value': "/etc/issue.net"}, 'levels': {'server': 1, 'workstation': 1}},
+            '4.2.6': {'description': "Ensure sshd Ciphers are configure", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
+            '4.2.7': {'description': "Ensure sshd ClientAliveInterval and ClientAliveCountMax are configured", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
+            '4.2.7a': {'description': "Ensure sshd ClientAliveInterval is 900 or less", 'function': audit_sshd_config_option, 'kwargs': {'parameter': "clientaliveinterval", 'expected_value': "900", 'comparison': "le"}, 'levels': {'server': 1, 'workstation': 1}},
+            '4.2.7b': {'description': "Ensure sshd ClientAliveCountMax is 0", 'function': audit_sshd_config_option, 'kwargs': {'parameter': "clientalivecountmax", 'expected_value': "0"}, 'levels': {'server': 1, 'workstation': 1}},
+            '4.2.8': {'description': "Ensure sshd DisableForwarding is enabled", 'function': audit_sshd_config_option, 'kwargs': {'parameter': "disableforwarding", 'expected_value': "yes"}, 'levels': {'server': 1, 'workstation': 1}},
+            '4.2.9': {'description': "Ensure sshd GSSAPIAuthentication is disabledenabled", 'function': audit_sshd_config_option, 'kwargs': {'parameter': "gssapiauthentication", 'expected_value': "no"}, 'levels': {'server': 1, 'workstation': 1}},
+            '4.2.10': {'description': "Ensure sshd HostbasedAuthentication is disabled", 'function': audit_sshd_config_option, 'kwargs': {'parameter': "hostbasedauthentication", 'expected_value': "no"}, 'levels': {'server': 1, 'workstation': 1}},
+            '4.2.11': {'description': "Ensure sshd IgnoreRhosts is enabled", 'function': audit_sshd_config_option, 'kwargs': {'parameter': "ignorerhosts", 'expected_value': "yes"}, 'levels': {'server': 1, 'workstation': 1}},
+            '4.2.12': {'description': "Ensure sshd KexAlgorithms is configured", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
+            '4.2.13': {'description': "Ensure sshd LoginGraceTime is configured", 'function': audit_sshd_config_option, 'kwargs': {'parameter': "logingracetime", 'expected_value': "60", 'comparison': "le"}, 'levels': {'server': 1, 'workstation': 1}},
+            '4.2.14': {'description': "Ensure sshd LogLevel is appropriate", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
+            '4.2.15': {'description': "Ensure sshd MACs are configured", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
+            '4.2.16': {'description': "Ensure sshd MaxAuthTries is configured", 'function': audit_sshd_config_option, 'kwargs': {'parameter': "maxauthtries", 'expected_value': "4", 'comparison': "le"}, 'levels': {'server': 1, 'workstation': 1}},
+            '4.2.17': {'description': "Ensure sshd MaxSessions is configured", 'function': audit_sshd_config_option, 'kwargs': {'parameter': "maxsessions", 'expected_value': "10", 'comparison': "le"}, 'levels': {'server': 1, 'workstation': 1}},
+            '4.2.18': {'description': "Ensure sshd MaxStartups is configured", 'function': audit_sshd_config_option, 'kwargs': {'parameter': "maxstartups", 'expected_value': "10:30:60"}, 'levels': {'server': 1, 'workstation': 1}},
+            '4.2.19': {'description': "Ensure sshd PermitEmptyPasswords is disabled", 'function': audit_sshd_config_option, 'kwargs': {'parameter': "permitemptypasswords", 'expected_value': "no"}, 'levels': {'server': 1, 'workstation': 1}},
+            '4.2.20': {'description': "Ensure sshd PermitRootLogin is disabled", 'function': audit_sshd_config_option, 'kwargs': {'parameter': "permitrootlogin", 'expected_value': "no"}, 'levels': {'server': 1, 'workstation': 1}},
+            '4.2.21': {'description': "Ensure sshd PermitUserEnvironment is disabled", 'function': audit_sshd_config_option, 'kwargs': {'parameter': "permituserenvironment", 'expected_value': "no"}, 'levels': {'server': 1, 'workstation': 1}},
+            '4.2.22': {'description': "Ensure sshd UsePAM is enabled", 'function': audit_sshd_config_option, 'kwargs': {'parameter': "usepam", 'expected_value': "yes"}, 'levels': {'server': 1, 'workstation': 1}},
+            '4.3': {'description': "Configure privilege escalation", 'type': "header"},
+            '4.3.1': {'description': "Ensure sudo is installed", 'function': audit_package_is_installed, 'kwargs': {'package': "sudo"}, 'levels': {'server': 1, 'workstation': 1}},
+            '4.3.2': {'description': "Ensure sudo commands use pty", 'function': audit_sudo_commands_use_pty, 'levels': {'server': 1, 'workstation': 1}},
+            '4.3.3': {'description': "Ensure sudo log file exists", 'function': audit_sudo_log_exists, 'levels': {'server': 1, 'workstation': 1}},
+            '4.3.4': {'description': "Ensure users must provide password for escalation", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
+            '4.3.5': {'description': "Ensure re-authentication for privilege escalation is not disabled globally", 'function': None},
+            '4.3.6': {'description': "Ensure sudo authentication timeout is configured correctly", 'function': None},
+            '4.3.7': {'description': "Ensure access to the su command is restricted", 'function': None},
+            '4.4': {'description': "Configure Pluggable Authentication Modules", 'type': "header"},
+            '4.4.1': {'description': "Configure PAM software packages", 'type': "header"},
+            '4.4.1.1': {'description': "Ensure latest version of pam is installed", 'function': None},
+            '4.4.1.2': {'description': "Ensure libpwquality is istalled installed", 'function': audit_package_is_installed, 'kwargs': {'package': "libpwquality"}, 'levels': {}},
+            '4.4.2': {'description': "Configure pluggable module arguments", 'type': "header"},
+            '4.4.2.1': {'description': "Configure pam_faillock module", 'type': "header"},
+            '4.4.2.1.1': {'description': "Ensure pam_faillock module is enabled", 'function': None},
+            '4.4.2.1.2': {'description': "Ensure password failed attempts lockout is configured", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
+            '4.4.2.1.3': {'description': "Ensure password unlock time is configured", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
+            '4.4.2.1.4': {'description': "Ensure password failed attempts lockout includes root account", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
+            '4.4.2.2': {'description': "Configure pam_pwquality module", 'type': "header"},
+            '4.4.2.2.1': {'description': "Ensure pam_pwquality module is enabled", 'function': None},
+            '4.4.2.2.2': {'description': "Ensure password number of changed characters is configured", 'function': None},
+            '4.4.2.2.3': {'description': "Ensure password length is configured", 'function': None},
+            '4.4.2.2.4': {'description': "Ensure password complexity is configured", 'type': "manual"},
+            '4.4.2.2.5': {'description': "Ensure password same consecutive characters is configured", 'function': None},
+            '4.4.2.2.6': {'description': "Ensure password maximum sequential characters is configured", 'function': None},
+            '4.4.2.2.7': {'description': "Ensure password dictionary check is enabled", 'function': None},
+            '4.4.2.3': {'description': "Configure pam_pwhistory module", 'type': "header"},
+            '4.4.2.3.1': {'description': "Ensure pam_pwhistory module is enabled", 'function': None},
+            '4.4.2.3.2': {'description': "Ensure password history remember is configured", 'function': None},
+            '4.4.2.3.3': {'description': "Ensure password history is enforced for the root user", 'function': None},
+            '4.4.2.3.4': {'description': "Ensure pam_pwhistory includes use_authtok", 'function': None},
+            '4.4.2.4': {'description': "Configure pam_unix module", 'type': "header"},
+            '4.4.2.4.1': {'description': "Ensure pam_unix does not include nullok", 'function': None},
+            '4.4.2.4.2': {'description': "Ensure pam_unix does not include remember", 'function': None},
+            '4.4.2.4.3': {'description': "Ensure pam_unix includes a strong password hashing algorithm", 'function': None},
+            '4.4.2.4.4': {'description': "Ensure pam_unix includes use_authtok", 'function': None},
+            '4.5': {'description': "User Accounts and Environment", 'type': "header"},
+            '4.5.1': {'description': "Configure shadow password suite parameters", 'type': "header"},
+            '4.5.1.1': {'description': "Ensure strong password hashing algorithm is configured", 'function': audit_password_hashing_algorithm, 'levels': {'server': 1, 'workstation': 1}},
+            '4.5.1.2': {'description': "Ensure password expiration is 365 days or less", 'function': audit_password_expiration_max_days_is_configured, 'levels': {'server': 1, 'workstation': 1}},
+            '4.5.1.3': {'description': "Ensure password expiration warning days is 7 or more", 'function': audit_password_expiration_warning_is_configured, 'levels': {'server': 1, 'workstation': 1}},
+            '4.5.1.4': {'description': "Ensure inactive password lock is 30 days or less", 'function': audit_password_inactive_lock_is_configured, 'levels': {'server': 1, 'workstation': 1}},
+            '4.5.1.5': {'description': "Ensure all users last password change date is in the past", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
+            '4.5.2': {'description': "Configure root and system accounts and environment", 'type': "header"},
+            '4.5.2.1': {'description': "Ensure default group for the root account is GID 0", 'function': audit_default_group_for_root, 'levels': {'server': 1, 'workstation': 1}},
+            '4.5.2.2': {'description': "Ensure root user umask is configured", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
+            '4.5.2.3': {'description': "Ensure system accounts are secured", 'function': audit_system_accounts_are_secured, 'levels': {'server': 1, 'workstation': 1}},
+            '4.5.2.4': {'description': "Ensure root password is set", 'function': None},
+            '4.5.3': {'description': "Configure user default environment", 'type': "header"},
+            '4.5.3.1': {'description': "Ensure nologin is not listed in /etc/shells", 'function': None},
+            '4.5.3.2': {'description': "Ensure default user shell timeout is configured", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
+            '4.5.3.3': {'description': "Ensure default user umask is configured", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
+            '5': {'description': "Logging and Auditing", 'type': "header"},
+            '5.1': {'description': "Configure Logging", 'type': "header"},
+            '5.1.1': {'description': "Configure rsyslog", 'type': "header"},
+            '5.1.1.1': {'description': "Ensure rsyslog is installed", 'function': audit_package_is_installed, 'kwargs': {'package': "rsyslog"}, 'levels': {'server': 1, 'workstation': 1}},
+            '5.1.1.2': {'description': "Ensure rsyslog service is enabled", 'function': audit_service_is_enabled_and_is_active, 'kwargs': {'service': "rsyslog"}, 'levels': {'server': 1, 'workstation': 1}},
+            '5.1.1.3': {'description': "Ensure journald is configured to send logs to rsyslog", 'function': audit_journald_configured_to_send_logs_to_rsyslog, 'levels': {'server': 1, 'workstation': 1}},
+            '5.1.1.4': {'description': "Ensure rsyslog default file permissions are configured", 'function': audit_rsyslog_default_file_permission_is_configured, 'levels': {'server': 1, 'workstation': 1}},
+            '5.1.1.5': {'description': "Ensure logging is configured", 'type': "manual"},
+            '5.1.1.6': {'description': "Ensure rsyslog is configured to send logs to a remote log host", 'function': audit_rsyslog_sends_logs_to_a_remote_log_host, 'levels': {'server': 1, 'workstation': 1}},
+            '5.1.1.7': {'description': "Ensure rsyslog is not configured to receive logs from a remote client", 'function': None},
+            '5.1.2': {'description': "Configure journald", 'type': "header"},
+            '5.1.2.1': {'description': "Ensure journald is configured to send logs to a remote log host", 'type': "header"},
+            '5.1.2.1.1': {'description': "Ensure systemd-journal-remote is installed", 'type': "manual"},
+            '5.1.2.1.2': {'description': "Ensure systemd-journal-remote is configured", 'type': "manual"},
+            '5.1.2.1.3': {'description': "Ensure systemd-journal-remote is enabled", 'type': "manual"},
+            '5.1.2.1.4': {'description': "Ensure journald is not configured to receive logs from a remote client", 'function': None},
+            '5.1.2.2': {'description': "Ensure journald service is enabled", 'function': None},
+            '5.1.2.3': {'description': "Ensure journald is configured to compress large log files", 'function': audit_journald_configured_to_compress_large_logs, 'levels': {'server': 1, 'workstation': 1}},
+            '5.1.2.4': {'description': "Ensure journald is configured to write logfiles to persistent disk", 'function': audit_journald_configured_to_write_logfiles_to_disk, 'levels': {'server': 1, 'workstation': 1}},
+            '5.1.2.5': {'description': "Ensure journald is not configured to send logs to rsyslog", 'function': None},
+            '5.1.2.6': {'description': "Ensure journald log rotation is configured per site policy", 'type': "manual"},
+            '5.1.3': {'description': "Ensure logrotate is configured", 'function': None},
+            '5.1.4': {'description': "Ensure all logfiles have appropriate access configured", 'function': None},
+            '5.2': {'description': "Configure System Accounting", 'type': "header"},
+            '5.2.1': {'description': "Ensure auditing is enabled", 'type': "header"},
+            '5.2.1.1': {'description': "Ensure audit is installed", 'function': audit_package_is_installed, 'kwargs': {'package': "audit"}, 'levels': {'server': 2, 'workstation': 2}},
+            '5.2.1.2': {'description': "Ensure auditing for processes that start prior to auditd is enabled", 'function': audit_auditing_for_processes_prior_to_start_is_enabled, 'levels': {'server': 2, 'workstation': 2}},
+            '5.2.1.3': {'description': "Ensure audit_backlog_limit is sufficient", 'function': None, 'levels': {'server': 2, 'workstation': 2}},
+            '5.2.1.4': {'description': "Ensure auditd service is enabled", 'function': audit_service_is_enabled_and_is_active, 'kwargs': {'service': "auditd"}, 'levels': {'server': 2, 'workstation': 2}},
+            '5.2.2': {'description': "Configure Data Retention", 'type': "header"},
+            '5.2.2.1': {'description': "Ensure audit log storage size is configured", 'function': audit_audit_log_size_is_configured, 'levels': {'server': 2, 'workstation': 2}},
+            '5.2.2.2': {'description': "Ensure audit logs are not automatically deleted", 'function': audit_audit_logs_not_automatically_deleted, 'levels': {'server': 2, 'workstation': 2}},
+            '5.2.2.3': {'description': "Ensure system is disabled when audit logs are full", 'function': audit_system_is_disabled_when_audit_logs_are_full, 'levels': {'server': 2, 'workstation': 2}},
+            '5.2.2.4': {'description': "Ensure system warns when audit logs are low on space", 'function': None},
+            '5.2.3': {'description': "Configure auditd rules", 'type': "header"},
+            '5.2.3.1': {'description': "Ensure changes to system administration scope (sudoers) is collected", 'function': audit_events_for_changes_to_sysadmin_scope_are_collected, 'levels': {'server': 2, 'workstation': 2}},
+            '5.2.3.2': {'description': "Ensure actions as another user are always logged", 'function': audit_events_for_system_administrator_commands_are_collected, 'levels': {'server': 2, 'workstation': 2}},
+            '5.2.3.3': {'description': "Ensure events that modify the sudo log file are collected", 'function': None},
+            '5.2.3.4': {'description': "Ensure events that modify date and time information are collected", 'function': audit_events_that_modify_datetime_are_collected, 'levels': {'server': 2, 'workstation': 2}},
+            '5.2.3.5': {'description': "Ensure events that modify the system's network environment are collected", 'function': audit_events_that_modify_network_environment_are_collected, 'levels': {'server': 2, 'workstation': 2}},
+            '5.2.3.6': {'description': "Ensure use of privileged commands are collected", 'function': None},
+            '5.2.3.7': {'description': "Ensure unsuccessful file access attempts are collected", 'function': audit_events_for_unsuccessful_file_access_attempts_are_collected, 'levels': {'server': 2, 'workstation': 2}},
+            '5.2.3.8': {'description': "Ensure events that modify user/group information are collected", 'function': audit_events_that_modify_usergroup_info_are_collected, 'levels': {'server': 2, 'workstation': 2}},
+            '5.2.3.9': {'description': "Ensure discretionary access control permission modification events are collected", 'function': audit_events_for_discretionary_access_control_changes_are_collected, 'levels': {'server': 2, 'workstation': 2}},
+            '5.2.3.10': {'description': "Ensure successful file system mounts are collected", 'function': audit_events_for_successful_file_system_mounts_are_collected, 'levels': {'server': 2, 'workstation': 2}},
+            '5.2.3.11': {'description': "Ensure session initiation information is collected", 'function': audit_events_for_discretionary_access_control_changes_are_collected, 'levels': {'server': 2, 'workstation': 2}},
+            '5.2.3.12': {'description': "Ensure login and logout events are collected", 'function': audit_events_for_login_and_logout_are_collected, 'levels': {'server': 2, 'workstation': 2}},
+            '5.2.3.13': {'description': "Ensure file deletion events by users are collected", 'function': audit_events_for_file_deletion_by_users_are_collected, 'levels': {'server': 2, 'workstation': 2}},
+            '5.2.3.14': {'description': "Ensure events that modify the system's Mandatory Access Controls are collected", 'function': audit_events_that_modify_mandatory_access_controls_are_collected, 'levels': {'server': 2, 'workstation': 2}},
+            '5.2.3.15': {'description': "Ensure successful and unsuccessful attempts to use the chcon command are recorded", 'function': None},
+            '5.2.3.16': {'description': "Ensure successful and unsuccessful attempts to use the setfacl command are recorded", 'function': None},
+            '5.2.3.17': {'description': "Ensure successful and unsuccessful attempts to use the chacl command are recorded", 'function': None},
+            '5.2.3.18': {'description': "Ensure successful and unsuccessful attempts to use the usermod command are recorded", 'function': None},
+            '5.2.3.19': {'description': "Ensure kernel module loading unloading and modification is collected", 'function': audit_events_for_kernel_module_loading_and_unloading_are_collected, 'levels': {'server': 2, 'workstation': 2}},
+            '5.2.3.20': {'description': "Ensure the audit configuration is immutable", 'function': audit_audit_config_is_immutable, 'levels': {'server': 2, 'workstation': 2}},
+            '5.2.3.21': {'description': "Ensure the running and on disk configuration is the same", 'type': "manual"},
+            '5.2.4': {'description': "Configure auditd file access", 'type': "header"},
+            '5.2.4.1': {'description': "Ensure the audit log directory is 0750 or more restrictive", 'function': None},
+            '5.2.4.2': {'description': "Ensure audit log files are mode 0640 or less permissive", 'function': None},
+            '5.2.4.3': {'description': "Ensure only authorized users own audit log files", 'function': None},
+            '5.2.4.4': {'description': "Ensure only authorized groups are assigned ownership of audit log files", 'function': None},
+            '5.2.4.5': {'description': "Ensure audit configuration files are 640 or more restrictive", 'function': None},
+            '5.2.4.6': {'description': "Ensure audit configuration files are owned by root", 'function': None},
+            '5.2.4.7': {'description': "Ensure audit configuration files belong to group root", 'function': None},
+            '5.2.4.8': {'description': "Ensure audit tools are 755 or more restrictive", 'function': None},
+            '5.2.4.9': {'description': "Ensure audit tools are owned by root", 'function': None},
+            '5.2.4.10': {'description': "Ensure audit tools belong to group root", 'function': None},
+            '5.3': {'description': "Configure Integrity Checking", 'type': "header"},
+            '5.3.1': {'description': "Ensure AIDE is installed", 'function': audit_package_is_installed, 'kwargs': {'package': "aide"}, 'levels': {'server': 1, 'workstation': 1}},
+            '5.3.2': {'description': "Ensure filesystem integrity is regularly checked", 'function': audit_filesystem_integrity_regularly_checked, 'levels': {'server': 1, 'workstation': 1}},
+            '6': {'description': "System Maintenance", 'type': "header"},
+            '6.1': {'description': "System File Permissions", 'type': "header"},
+            '6.1.1': {'description': "Ensure permissions on /etc/passwd are configured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/passwd", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0644"}, 'levels': {'server': 1, 'workstation': 1}},
+            '6.1.2': {'description': "Ensure permissions on /etc/passwd- are configured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/passwd-", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0644"}, 'levels': {'server': 1, 'workstation': 1}},
+            '6.1.3': {'description': "Ensure permissions on /etc/group are configured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/group", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0644"}, 'levels': {'server': 1, 'workstation': 1}},
+            '6.1.4': {'description': "Ensure permissions on /etc/group- are configured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/group-", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0644"}, 'levels': {'server': 1, 'workstation': 1}},
+            '6.1.5': {'description': "Ensure permissions on /etc/shadow are configured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/shadow", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0000"}, 'levels': {'server': 1, 'workstation': 1}},
+            '6.1.6': {'description': "Ensure permissions on /etc/shadow- are configured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/shadow-", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0000"}, 'levels': {'server': 1, 'workstation': 1}},
+            '6.1.7': {'description': "Ensure permissions on /etc/gshadow are configured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/gshadow", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0000"}, 'levels': {'server': 1, 'workstation': 1}},
+            '6.1.8': {'description': "Ensure permissions on /etc/gshadow- are configured", 'function': audit_file_permissions, 'kwargs': {'file': "/etc/gshadow-", 'expected_user': "root", 'expected_group': "root", 'expected_mode': "0000"}, 'levels': {'server': 1, 'workstation': 1}},
+            '6.1.9': {'description': "Ensure permissions on /etc/shells are configured", 'function': None},
+            '6.1.10': {'description': "Ensure permissions on /etc/security/opasswd are configured", 'function': None},
+            '6.1.11': {'description': "Ensure world writable files and directories are secured", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
+            '6.1.12': {'description': "Ensure no unowned or ungrouped files or directories exist", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
+            '6.1.13': {'description': "Ensure SUID and SGID files are reviewed", 'type': "manual"},
+            '6.1.14': {'description': "Audit system file permissions", 'type': "manual"},
+            '6.2': {'description': "Local User and Group Settings", 'type': "header"},
+            '6.2.1': {'description': "Ensure accounts in /etc/passwd use shadowed passwords", 'function': audit_etc_passwd_accounts_use_shadowed_passwords, 'levels': {'server': 1, 'workstation': 1}},
+            '6.2.2': {'description': "Ensure /etc/shadow password fields are not empty", 'function': audit_etc_shadow_password_fields_are_not_empty, 'levels': {'server': 1, 'workstation': 1}},
+            '6.2.3': {'description': "Ensure all groups in /etc/passwd exist in /etc/group", 'function': audit_etc_passwd_gids_exist_in_etc_group, 'levels': {'server': 1, 'workstation': 1}},
+            '6.2.4': {'description': "Ensure no duplicate UIDs exist", 'function': audit_duplicate_uids, 'levels': {'server': 1, 'workstation': 1}},
+            '6.2.5': {'description': "Ensure no duplicate GIDs exist", 'function': audit_duplicate_gids, 'levels': {'server': 1, 'workstation': 1}},
+            '6.2.6': {'description': "Ensure no duplicate user names exist", 'function': audit_duplicate_user_names, 'levels': {'server': 1, 'workstation': 1}},
+            '6.2.7': {'description': "Ensure no duplicate group names exist", 'function': audit_duplicate_group_names, 'levels': {'server': 1, 'workstation': 1}},
+            '6.2.8': {'description': "Ensure root path integrity", 'function': None},
+            '6.2.9': {'description': "Ensure root is the only UID 0 account", 'function': audit_root_is_only_uid_0_account, 'levels': {'server': 1, 'workstation': 1}},
+            '6.2.10': {'description': "Ensure local interactive user home directories are configured", 'function': audit_homedirs_permissions, 'levels': {'server': 1, 'workstation': 1}},
+            '6.2.11': {'description': "Ensure local interactive user dot files access is configured", 'function': None, 'levels': {'server': 1, 'workstation': 1}},
+        },
     },
 }
 
@@ -3222,7 +3469,7 @@ def main():  # pragma: no cover
     log.setLevel(CONFIG.log_level)
 
     host_os = 'CentOS 7'
-    benchmark_version = '4.0.0'
+    benchmark_version = max(sorted(benchmarks[host_os].keys()))
 
     test_list = benchmarks[host_os][benchmark_version]
 

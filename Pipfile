@@ -15,6 +15,7 @@ pyfakefs = "<4.6.0"
 pytest = "*"
 pytest-cov = "*"
 vermin = "*"
+pypdf = "*"
 
 [requires]
 python_version = "3.6"

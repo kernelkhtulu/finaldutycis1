@@ -45,20 +45,22 @@ def mock_datetime_utcnow(offset=0):
 @patch("cis_audit._get_utcnow", mock_datetime_utcnow)
 class TestRunTests:
 
-    test_args = {}
-    test_args['_id'] = '1.1'
-    test_args['type'] = 'test'
-    test_args['levels'] = {'server': 1, 'workstation': 1}
-    test_args['description'] = 'pytest'
+    test_args = {
+        'type': "test",
+        'levels': {'server': 1, 'workstation': 1},
+        'description': "pytest",
+    }
+    test_id = "1.1"
 
     def test_run_tests_pass(self):
         test_args = self.test_args.copy()
         test_args['function'] = mock_run_tests_pass
+        tests_dict = {self.test_id: test_args}
 
-        result = run_tests([test_args])
+        result = run_tests(tests_dict)
         assert result == [
             {
-                '_id': test_args['_id'],
+                '_id': self.test_id,
                 'description': test_args['description'],
                 'level': test_args['levels']['server'],
                 'result': 'Pass',
@@ -69,11 +71,12 @@ class TestRunTests:
     def test_run_tests_fail(self):
         test_args = self.test_args.copy()
         test_args['function'] = mock_run_tests_fail
+        tests_dict = {self.test_id: test_args}
 
-        result = run_tests([test_args])
+        result = run_tests(tests_dict)
         assert result == [
             {
-                '_id': test_args['_id'],
+                '_id': self.test_id,
                 'description': test_args['description'],
                 'level': test_args['levels']['server'],
                 'result': 'Fail',
@@ -84,11 +87,12 @@ class TestRunTests:
     def test_run_tests_error(self):
         test_args = self.test_args.copy()
         test_args['function'] = mock_run_tests_error
+        tests_dict = {self.test_id: test_args}
 
-        result = run_tests([test_args])
+        result = run_tests(tests_dict)
         assert result == [
             {
-                '_id': test_args['_id'],
+                '_id': self.test_id,
                 'description': test_args['description'],
                 'level': test_args['levels']['server'],
                 'result': 'Error',
@@ -99,11 +103,12 @@ class TestRunTests:
     def test_run_tests_exception(self):
         test_args = self.test_args.copy()
         test_args['function'] = mock_run_tests_exception
+        tests_dict = {self.test_id: test_args}
 
-        result = run_tests([test_args])
+        result = run_tests(tests_dict)
         assert result == [
             {
-                '_id': test_args['_id'],
+                '_id': self.test_id,
                 'description': test_args['description'],
                 'level': test_args['levels']['server'],
                 'result': 'Error',
@@ -114,11 +119,12 @@ class TestRunTests:
     def test_run_tests_skipped(self):
         test_args = self.test_args.copy()
         test_args['function'] = mock_run_tests_skipped
+        tests_dict = {self.test_id: test_args}
 
-        result = run_tests([test_args])
+        result = run_tests(tests_dict)
         assert result == [
             {
-                '_id': test_args['_id'],
+                '_id': self.test_id,
                 'description': test_args['description'],
                 'level': test_args['levels']['server'],
                 'result': 'Skipped',
@@ -131,11 +137,12 @@ class TestRunTests:
         test_args['function'] = mock_run_tests_kwargs
         test_args['kwargs'] = {'foo': 'bar'}
         test_args.pop('levels')
+        tests_dict = {self.test_id: test_args}
 
-        result = run_tests([test_args])
+        result = run_tests(tests_dict)
         assert result == [
             {
-                '_id': test_args['_id'],
+                '_id': self.test_id,
                 'description': test_args['description'],
                 'level': None,
                 'result': 'Pass',
@@ -146,11 +153,12 @@ class TestRunTests:
     def test_run_tests_type_header(self):
         test_args = self.test_args.copy()
         test_args['type'] = 'header'
+        tests_dict = {self.test_id: test_args}
 
-        result = run_tests([test_args])
+        result = run_tests(tests_dict)
         assert result == [
             {
-                '_id': test_args['_id'],
+                '_id': self.test_id,
                 'description': test_args['description'],
             }
         ]
@@ -158,11 +166,12 @@ class TestRunTests:
     def test_run_tests_type_manual(self):
         test_args = self.test_args.copy()
         test_args['type'] = 'manual'
+        tests_dict = {self.test_id: test_args}
 
-        result = run_tests([test_args])
+        result = run_tests(tests_dict)
         assert result == [
             {
-                '_id': test_args['_id'],
+                '_id': self.test_id,
                 'description': test_args['description'],
                 'level': test_args['levels']['server'],
                 'result': 'Manual',
@@ -172,12 +181,14 @@ class TestRunTests:
     def test_run_tests_type_none(self, caplog):
         test_args = self.test_args.copy()
         test_args.pop('type', None)
+        tests_dict = {self.test_id: test_args}
+
         caplog.set_level("DEBUG")
 
-        result = run_tests([test_args])
+        result = run_tests(tests_dict)
         assert result == [
             {
-                '_id': test_args['_id'],
+                '_id': self.test_id,
                 'description': test_args['description'],
                 'level': test_args['levels']['server'],
                 'result': 'Not Implemented',
@@ -190,11 +201,12 @@ class TestRunTests:
     def test_run_tests_type_skip(self, caplog):
         test_args = self.test_args.copy()
         test_args['type'] = 'skip'
+        tests_dict = {self.test_id: test_args}
 
-        result = run_tests([test_args])
+        result = run_tests(tests_dict)
         assert result == [
             {
-                '_id': test_args['_id'],
+                '_id': self.test_id,
                 'description': test_args['description'],
                 'level': test_args['levels']['server'],
                 'result': 'Skipped',
@@ -204,9 +216,17 @@ class TestRunTests:
     def test_run_tests_error_not_implemented(self, caplog):
         test_args = self.test_args.copy()
         test_args.pop('type')
+        tests_dict = {self.test_id: test_args}
 
-        result = run_tests([test_args])
-        assert result == [{'_id': test_args['_id'], 'description': test_args['description'], 'level': test_args['levels']['server'], 'result': 'Not Implemented'}]
+        result = run_tests(tests_dict)
+        assert result == [
+            {
+                '_id': self.test_id,
+                'description': test_args['description'],
+                'level': test_args['levels']['server'],
+                'result': 'Not Implemented',
+            }
+        ]
 
 
 if __name__ == '__main__':

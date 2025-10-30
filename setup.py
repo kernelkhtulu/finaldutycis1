@@ -1,21 +1,20 @@
 #!/usr/bin/env python3
+from setuptools import find_packages, setup
 
-import setuptools
-
-from cis_audit import __version__
-
-setuptools.setup(
-    name="cis-benchmarks-audit",
-    version=__version__,
-    author="Andy Dustin",
-    author_email="andy.dustin@gmail.com",
-    description="Check systems conformance to CIS Hardening benchmarks",
-    packages=setuptools.find_packages(),
-    py_modules=['cis_audit'],
-    classifiers=[
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.6",
-        "License :: OSI Approved :: Apache Software License",
+setup(
+    name="novashield",
+    version="1.0.0",
+    author="NovaShield Contributors",
+    description="Next-generation CIS compliance analytics platform",
+    packages=find_packages(include=["backend", "backend.*"]),
+    py_modules=["cis_audit"],
+    python_requires=">=3.11",
+    install_requires=[
+        "fastapi>=0.111.0",
+        "uvicorn[standard]>=0.30.0",
+        "pydantic>=2.7.0",
     ],
-    python_requires='==3.6.*',
+    extras_require={
+        "dev": ["pytest>=8.2.0", "httpx>=0.27.0", "pytest-asyncio>=0.23.0"],
+    },
 )

@@ -1,7 +1,11 @@
 [tool.black]
-line-length = 999
-skip-string-normalization = true
-target-version = ['py36']
+line-length = 100
+target-version = ["py312"]
 
 [tool.isort]
 profile = "black"
+
+[tool.ruff]
+line-length = 100
+select = ["E", "F", "I", "UP"]
+ignore = ["E501"]

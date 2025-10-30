@@ -1,153 +1,93 @@
-# CIS Benchmarks Audit
-<p>
-  <a href="https://github.com/finalduty/cis-benchmarks-audit/tags">
-    <img alt="Latest version" src="https://img.shields.io/github/v/tag/finalduty/cis-benchmarks-audit?include_prereleases&label=latest&logo=python">
-  </a>
-  <a href="https://github.com/finalduty/cis-benchmarks-audit/actions/workflows/ci-tests.yaml">
-    <img alt="GitHub Actions" src="https://github.com/finalduty/cis-benchmarks-audit/actions/workflows/ci-tests.yaml/badge.svg">
-  </a>
+# NovaShield
 
-  <a href="http://creativecommons.org/licenses/by-nc-sa/4.0/">
-    <img alt="License" src="https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg">
-  </a>
-  <a href="https://codecov.io/gh/finalduty/cis-benchmarks-audit">
-    <img src="https://codecov.io/gh/finalduty/cis-benchmarks-audit/branch/main/graph/badge.svg?token=BAFVN48B40"/>
-  </a>
-  <a href="https://www.codefactor.io/repository/github/finalduty/cis-benchmarks-audit/badge">
-    <img alt="CodeFactor" src="https://www.codefactor.io/repository/github/finalduty/cis-benchmarks-audit/badge">
-  </a>
-  <a href="https://github.com/psf/black">
-    <img alt="Code style: black" src="https://img.shields.io/badge/code%20style-black-000000.svg">
-  </a>
-</p>
+NovaShield is the next-generation evolution of the original CIS Benchmarks Audit script. It retains the trusted audit engine while wrapping it inside a modern platform composed of a FastAPI backend and a responsive React experience. The result is a realtime observatory for compliance teams—actionable insights, rich history, and effortless navigation across thousands of controls.
 
-This repo provides an unofficial, standalone, zero-install, zero-dependency, Python 3 script which can check your system against published CIS Hardening Benchmarks to offer an indication of your system's preparedness for compliance to the official standard.
+## Feature highlights
 
+- **Next-gen UI:** A Vite + React dashboard with responsive cards, charts, and fluid navigation optimised for desktops and tablets.
+- **FastAPI service layer:** An async-ready backend that exposes audit execution and history endpoints, with first-class CORS support for browser clients.
+- **Zero-copy compliance engine:** The original `cis_audit` logic now powers NovaShield through a service wrapper, guaranteeing continuity with existing benchmark content.
+- **Quick vs full runs:** Trigger rapid “pulse checks” with curated control sets or execute the full benchmark catalogue when you need exhaustive evidence.
+- **Actionable telemetry:** Summaries roll up pass/fail/error counts, while detailed tables expose per-control outcomes, durations, and levels.
 
-### How do I use this?
-#### Download:
+## Getting started
 
-    curl -LO https://raw.githubusercontent.com/finalduty/cis_benchmarks_audit/main/cis_audit.py && chmod 750 cis_audit.py
+### Prerequisites
 
-#### Run
-```
-#usage: cis_audit.py [-h] [--level {1,2}] [--include INCLUDES [INCLUDES ...]]
-                    [--exclude EXCLUDES [EXCLUDES ...]]
-                    [-l {DEBUG,INFO,WARNING,CRITICAL}] [--debug] [--nice]
-                    [--no-nice] [--no-colour]
-                    [--system-type {server,workstation}] [--server]
-                    [--workstation] [--outformat {csv,json,psv,text,tsv}]
-                    [--text] [--json] [--csv] [--psv] [--tsv] [-V] [-c CONFIG]
+- Python **3.11+** for the backend service
+- Node.js **18+** (or a compatible runtime) for the React interface
 
-This script runs tests on the system to check for compliance against the CIS Benchmarks. No changes are made to system files by this script.
+### Backend setup
 
-optional arguments:
-  -h, --help            show this help message and exit
-  --level {1,2}         Run tests for the specified level only
-  --include INCLUDES [INCLUDES ...]
-                        Space delimited list of tests to include
-  --exclude EXCLUDES [EXCLUDES ...]
-                        Space delimited list of tests to exclude
-  -l {DEBUG,INFO,WARNING,CRITICAL}, --log-level {DEBUG,INFO,WARNING,CRITICAL}
-                        Set log output level
-  --debug               Run script with debug output turned on. Equivalent to --log-level DEBUG
-  --nice                Lower the CPU priority for test execution. This is the default behaviour.
-  --no-nice             Do not lower CPU priority for test execution. This may make the tests complete faster but at the cost of putting a higher load on the server. Setting this overrides the --nice option.
-  --no-colour, --no-color
-                        Disable colouring for STDOUT. Output redirected to a file/pipe is never coloured.
-  --system-type {server,workstation}
-                        Set which test level to reference
-  --server              Use "server" levels to determine which tests to run. Equivalent to --system-type server [Default]
-  --workstation         Use "workstation" levels to determine which tests to run. Equivalent to --system-type workstation
-  --outformat {csv,json,psv,text,tsv}
-                        Output type for results
-  --text                Output results as text. Equivalent to --output text [default]
-  --json                Output results as json. Equivalent to --output json
-  --csv                 Output results as comma-separated values. Equivalent to --output csv
-  --psv                 Output results as pipe-separated values. Equivalent to --output psv
-  --tsv                 Output results as tab-separated values. Equivalent to --output tsv
-  -V, --version         Print version and exit
-  -c CONFIG, --config CONFIG
-                        Location of config file to load
-
-Examples:
-    
-    Run with debug enabled:
-    ./cis_audit.py --debug
-        
-    Exclude tests from section 1.1 and 1.3.2:
-    ./cis_audit.py --exclude 1.1 1.3.2
-        
-    Include tests only from section 4.1 but exclude tests from section 4.1.1:
-    ./cis_audit.py --include 4.1 --exclude 4.1.1
-        
-    Run only level 1 tests
-    ./cis_audit.py --level 1
-        
-    Run level 1 tests and include some but not all SELinux questions
-    ./cis_audit.py --level 1 --include 1.6 --exclude 1.6.1.2
-
+```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .[dev]
+uvicorn app.main:app --reload
 ```
 
-### Example Results
-```
-# ./cis-audit.sh --include 5.2
-[00:00:01] (✓) 14 of 14 tests completed 
+The API is served at `http://127.0.0.1:8000`. Useful endpoints include:
 
- CIS CentOS 7 Benchmark v2.2.0 Results 
----------------------------------------
-ID      Description                                                Scoring  Level  Result  Duration
---      -----------                                                -------  -----  ------  --------
+- `GET /health` – readiness probe
+- `GET /api/audits?limit=5` – fetch recent runs (newest first)
+- `POST /api/audits/run` – execute a new audit (see payload schema below)
 
-5       Access Authentication and Authorization
-5.2     SSH Server Configuration
-5.2.1   Ensure permissions on /etc/ssh/sshd_config are configured  Scored   1      Pass    33ms
-5.2.2   Ensure SSH Protocol is set to 2                            Scored   1      Pass    5ms
-5.2.3   Ensure SSH LogLevel is set to INFO                         Scored   1      Pass    6ms
-5.2.4   Ensure SSH X11 forwarding is disabled                      Scored   1      Pass    4ms
-5.2.5   Ensure SSH MaxAuthTries is set to 4 or less                Scored   1      Pass    9ms
-5.2.6   Ensure SSH IgnoreRhosts is enabled                         Scored   1      Pass    5ms
-5.2.7   Ensure SSH HostbasedAuthentication is disabled             Scored   1      Pass    5ms
-5.2.8   Ensure SSH root login is disabled                          Scored   1      Fail    8ms
-5.2.9   Ensure SSH PermitEmptyPasswords is disabled                Scored   1      Pass    5ms
-5.2.10  Ensure SSH PermitUserEnvironment is disabled               Scored   1      Pass    8ms
-5.2.11  Ensure only approved ciphers are used                      Scored   1      Pass    16ms
-5.2.12  Ensure only approved MAC algorithms are used               Scored   1      Pass    45ms
-5.2.13  Ensure SSH Idle Timeout Interval is configured             Scored   1      Fail    15ms
-5.2.14  Ensure SSH LoginGraceTime is set to one minute or less     Scored   1      Pass    11ms
-5.2.15  Ensure SSH access is limited                               Skipped  1              
-5.2.16  Ensure SSH warning banner is configured                    Scored   1      Pass    6ms
+Example request body:
 
-Passed 13 of 15 tests in 1 seconds (1 Skipped, 0 Errors)
+```json
+{
+  "execution_mode": "quick",
+  "system_type": "server",
+  "level": 0
+}
 ```
 
-### Supported Versions
-OS|Benchmark Versions|Python Version
----|---|---
-CentOS 7|3.1.2|3.6
+Quick mode automatically injects a curated set of high-signal controls. Supply `"execution_mode": "full"` and optional `includes` / `excludes` arrays when you need exhaustive coverage.
 
+### Frontend setup
 
-### Caveats
-#### Terms of Use
-Use of the CIS Benchmarks are subject to the [Terms of Use for Non-Member CIS Products](https://www.cisecurity.org/terms-of-use-for-non-member-cis-products)
-
-
-#### CentOS 7 & Python 3
-Whilst this repo intends to follow a zero dependency approach, it is not practical to support Python 2.7, which is what is installed by default on CentOS 7. You can however easily install Python 3.6 via yum, which I hope is ok for your environment:
-```
-$ sudo yum install python3 -y
+```bash
+cd frontend
+npm install
+npm run dev
 ```
 
-### Disclaimer
-This is not a replacement for a full audit and a passing result from this script does not necessarily mean that you are compliant (but it should give you a good idea of where to start).  
+By default the UI assumes the backend is available on `http://localhost:8000`. Override the target host by setting `VITE_API_BASE_URL` before launching the dev server, e.g. `VITE_API_BASE_URL=https://api.example.com npm run dev`.
 
-_No warranty is offered and no responsibility will be taken for damage to systems resulting from the use of this tool._
+The dashboard provides:
 
-### License
-This work is licensed under a [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License][cc-by-nc-sa].
+- A **Trigger audit** panel to launch quick or full runs
+- A **Compliance pulse** chart aggregating latest pass/fail/error counts
+- A **Latest controls** table with rich status badges and durations
 
-[![CC BY-NC-SA 4.0][cc-by-nc-sa-image]][cc-by-nc-sa]
+### Legacy CLI
 
-[cc-by-nc-sa]: http://creativecommons.org/licenses/by-nc-sa/4.0/
-[cc-by-nc-sa-image]: https://licensebuttons.net/l/by-nc-sa/4.0/88x31.png
-[cc-by-nc-sa-shield]: https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg
+Prefer the classic single-file workflow? The refreshed `cis_audit.py` remains in the repository and continues to run standalone audits:
+
+```bash
+python cis_audit.py --json --include 1.1.1.1 1.1.1.2
+```
+
+The script’s version has been bumped to **1.0.0**, the `--version` output is now well-formed, and authentication checks for emergency mode have been corrected.
+
+## Testing
+
+Run the FastAPI unit tests with:
+
+```bash
+pytest
+```
+
+This exercises the new orchestration layer and guards NovaShield’s quick-mode defaults and summary logic.
+
+## Roadmap ideas
+
+- Multi-platform benchmark catalogues (RHEL 9, Rocky 9, Ubuntu LTS)
+- Historical trend visualisations (sparkline compliance trajectories)
+- Background job orchestration for long-running audits
+- Role-based access control for shared operations teams
+
+## License
+
+The compliance engine retains its original Creative Commons BY-NC-SA 4.0 license. New code added for NovaShield is provided under the same terms for consistency.

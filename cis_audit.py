@@ -5,11 +5,12 @@
 # https://creativecommons.org/licenses/by-nc-sa/4.0/
 
 # This unofficial tool checks for your system against published CIS Hardening Benchmarks and offers an indication of your system's preparedness for compliance to the official standard.
+# The engine now powers NovaShield, the next-generation web platform for compliance analytics.
 
 # You can obtain a copy of the CIS Benchmarks from https://www.cisecurity.org/cis-benchmarks/
 # Use of the CIS Benchmarks are subject to the Terms of Use for Non-Member CIS Products - https://www.cisecurity.org/terms-of-use-for-non-member-cis-products
 
-__version__ = '0.20.0-alpha.3'
+__version__ = '1.0.0'
 
 ### Imports ###
 import json  # https://docs.python.org/3/library/json.html
@@ -35,11 +36,6 @@ from types import (
     SimpleNamespace,  # https://docs.python.org/3/library/types.html#types.SimpleNamespace
 )
 from typing import Generator
-
-from tests.integration import (
-    shellexec,  # https://docs.python.org/3/library/typing.html#typing.Generator
-)
-
 
 ### Classes ###
 class CISAudit:
@@ -303,7 +299,7 @@ class CISAudit:
         if r.stdout[0] not in success_strings:
             state += 1
 
-        cmd = R"grep ExecStart= /usr/lib/systemd/system/rescue.service"
+        cmd = R"grep ExecStart= /usr/lib/systemd/system/emergency.service"
         r = self._shellexec(cmd)
         if r.stdout[0] not in success_strings:
             state += 2
@@ -1878,7 +1874,7 @@ class CISAudit:
         if r.stdout[0] != '':
             state += 1
 
-        gid = shellexec("awk -F: '/^shadow:/ {print $3}' /etc/group").stdout[0]
+        gid = self._shellexec("awk -F: '/^shadow:/ {print $3}' /etc/group").stdout[0]
 
         cmd = f"awk -F: '($4 == \"{gid}\") {{print $1}}' /etc/passwd"
         r = self._shellexec(cmd)
@@ -2591,7 +2587,7 @@ Examples:
     log_level_choices = ['DEBUG', 'INFO', 'WARNING', 'CRITICAL']
     output_choices = ['csv', 'json', 'psv', 'text', 'tsv']
     system_type_choices = ['server', 'workstation']
-    version_str = f'{os.path.basename(__file__)} {__version__})'
+    version_str = f'{os.path.basename(__file__)} {__version__}'
 
     parser = ArgumentParser(description=description, epilog=epilog, formatter_class=RawTextHelpFormatter)
 

@@ -1,19 +1,19 @@
 [[source]]
+name = "pypi"
 url = "https://pypi.org/simple"
 verify_ssl = true
-name = "pypi"
 
 [packages]
+fastapi = "*"
+uvicorn = {extras = ["standard"], version = "*"}
+pydantic = "*"
+httpx = "*"
 
 [dev-packages]
-cis-benchmarks-audit = {editable = true, path = "."}
+pytest = "*"
+pytest-asyncio = "*"
 black = "*"
-flake8 = "*"
-isort = "*"
-mock = "*"
-pyfakefs = "<4.6.0"
-pytest-cov = "*"
-vermin = "*"
+ruff = "*"
 
 [requires]
-python_version = "3.6"
+python_version = "3.12"
